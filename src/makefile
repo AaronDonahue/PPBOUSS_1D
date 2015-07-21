@@ -5,12 +5,12 @@ ODIR = odir/
 
 MACHINE_NAME := $(shell hostname)   
 
-#GIT_SHA := $(shell git rev-parse HEAD)    
-#GIT_MOD := $(shell git diff-index --quiet HEAD; echo $$?)
-#GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD )
+GIT_SHA := $(shell git rev-parse HEAD)    
+GIT_MOD := $(shell git diff-index --quiet HEAD; echo $$?)
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD )
 
-#GIT_MOD := $(strip $(subst 1,+,$(GIT_MOD)))
-#GIT_MOD := $(strip $(subst 0,,$(GIT_MOD)))
+GIT_MOD := $(strip $(subst 1,+,$(GIT_MOD)))
+GIT_MOD := $(strip $(subst 0,,$(GIT_MOD)))
 
 ########################################################################
 #                  Compiler Flags (Build Specific)                     #
@@ -63,16 +63,18 @@ DG_WASUPP :
 	
 else                   # this is called the second time after the build specific stuff is set
 
-DG_WASUPP : $(ODIR) $(obj)
+#DG_WASUPP : $(ODIR) $(obj)
+#	$(FC) $(FFLAGS_LINK) $(EXE_NAME) $(obj) $(METIS_LIB) $(LAPACK_LIB)
+#	
+#	mv $(EXE_NAME) ../work
+	
+DG_WASUPP : $(ODIR) version  $(obj)
+	@echo  " \n\033[35m$(MESSAGE) on $(FULLNAME) \033[0m \n"
+	@echo "Git SHA: $(GIT_SHA)"
+	@echo "Modified: $(GIT_MOD) \n"
 	$(FC) $(FFLAGS_LINK) $(EXE_NAME) $(obj) $(METIS_LIB) $(LAPACK_LIB)
 	
-	mv $(EXE_NAME) ../work
-	
-#DG_WASUPP : $(ODIR) version  $(obj)
-#	@echo  " \n\033[35m$(MESSAGE) on $(FULLNAME) \033[0m \n"
-#	@echo "Git SHA: $(GIT_SHA)"
-#	@echo "Modified: $(GIT_MOD) \n"
-#	$(FC) $(FFLAGS_LINK) $(EXE_NAME) $(obj) $(METIS_LIB) $(LAPACK_LIB)
+	mv $(EXE_NAME) ../work	
 endif
 
 ########################################################################
@@ -82,9 +84,9 @@ endif
 $(ODIR) :
 	mkdir -p $@
 
-#version:
-#	@sed -i '6 c \      PRINT*, "  Branch: $(GIT_BRANCH)" ' $(VPATH)version.F90	
-#	@sed -i '7 c \      PRINT*, "  SHA: $(GIT_SHA) $(GIT_MOD)" ' $(VPATH)version.F90
+version:
+	@sed -i '6 c \      PRINT*, "  Branch: $(GIT_BRANCH)" ' $(VPATH)version.F90	
+	@sed -i '7 c \      PRINT*, "  SHA: $(GIT_SHA) $(GIT_MOD)" ' $(VPATH)version.F90
 
 ########################################################################
 #                            Clean Targets                             #
