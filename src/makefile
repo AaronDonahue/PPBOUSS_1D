@@ -44,7 +44,7 @@ endif
 ########################################################################
 
 objects = SIZES.o GLOBALS.o READ_DGINP.o PREP_DG.o DG_TIMESTEP.o MAIN.o \
-          ERROR_CHECKS.o SOLUTION_IO.o
+          ERROR_CHECKS.o SOLUTION_IO.o version.o
 
 obj := $(patsubst %.o, $(ODIR)%.o,$(objects))
 
@@ -120,8 +120,8 @@ $(ODIR)READ_DGINP.o : READ_DGINP.F90 SIZES.F90 GLOBALS.F90
 	$(FC) $(FFLAGS) $< -o $@
 	mv read_dginp.mod $(ODIR)
 	
-#$(ODIR)version.o : version.F90
-#	$(FC) $(FFLAGS) $< -o $@	
+$(ODIR)version.o : version.F90
+	$(FC) $(FFLAGS) $< -o $@	
 
 $(ODIR)MAIN.o : MAIN.F90 GLOBALS.F90 SIZES.F90
 	$(FC) $(FFLAGS) $< -o $@

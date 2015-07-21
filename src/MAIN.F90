@@ -9,6 +9,8 @@
       INTEGER :: SNAP
       REAL(SZ) :: CPU_START,CPU_FINISH
       
+!.....Print version information
+      CALL version
 !.....Track how long simulation takes to run
       CALL CPU_TIME(CPU_START)
       
