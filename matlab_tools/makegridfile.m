@@ -1,20 +1,20 @@
 %% Matlab script to construct a grid file
 
-% runname = 'dambreak';
-% gridfile = 'dambreak.14';
+runname = 'dambreak';
+gridfile = 'dambreak.14';
 
-runname = 'riemann';
-gridfile = 'riemann.14';
+% runname = 'riemann';
+% gridfile = 'riemann.14';
 
 % runname = 'parabolic';
 % gridfile = 'parabolic.14';
 %% Determine x vector
 % nn = 501;
 % x = linspace(-10,10,nn);
+dx = 10;
+x = -300:dx:300;
 % dx = 1.25;
-% x = -300:dx:300;
-dx = 1.25;
-x = -200:dx:400;
+% x = -200:dx:400;
 % dx = 12.5;
 % x = -4000:dx:4000;
 nn = length(x);

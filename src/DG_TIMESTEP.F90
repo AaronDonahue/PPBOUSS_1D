@@ -2,9 +2,10 @@
 !==========================================================================!
       SUBROUTINE DG_TIMESTEP
       
-      USE GLOBALS,    ONLY : IRK,ZE_RHS,QE_RHS,ZE,QE,ATVD,BTVD,DT,NE
+      USE GLOBALS,    ONLY : IRK,ZE_RHS,QE_RHS,ZE,QE,ATVD,BTVD,DT,NE,      &
+     &                       WDFLG
       USE SIZES,      ONLY : SZ
-      USE READ_DGINP, ONLY : NRK,P,IWET
+      USE READ_DGINP, ONLY : NRK,P,IWET,ISLP
 
       IMPLICIT NONE
       INTEGER	:: L,I,K
@@ -41,10 +42,17 @@
           END DO
         END DO
         
+!.......Before next stage, update status of solution...        
 !.......Update WET/DRY status of solution
         IF (IWET.GT.0) THEN
           CALL WETDRY
         END IF
+!.......Apply slope limiter if needed
+        IF (ISLP.GT.0) THEN          
+          CALL SLOPELIMIT
+        END IF
+
+        
         
       END DO
 !---------------------------------------------------------------------------!
@@ -403,7 +411,7 @@
       REAL(SZ) :: ZE_IN(NEGP+2),QE_IN(NEGP+2)
       REAL(SZ) :: ZE_BND(2),QE_BND(2),DE_AVG,QE_SUM
       REAL(SZ) :: HE_IN(2),HHAT(2)
-      
+            
       H00 = H0
 !.....Cycle through all the elements to check wet/dry status of each
       DO L = 1,NE
@@ -524,11 +532,13 @@
             ! If HE_IN(1) > HE_IN(2) then left side of element is higher
             IF (HE_IN(1).GT.HE_IN(2)) THEN
               HHAT(2) = MAX(H0,HE_IN(2))
-              HHAT(1) = HE_IN(1)-(HHAT(2)-HE_IN(2))
+              HHAT(1) = MAX(H0,HE_IN(1)-(HHAT(2)-HE_IN(2)))
+!               HHAT(1) = HE_IN(1)-(HHAT(2)-HE_IN(2))
             ! Otherwise the right side of the element is higher            
             ELSE
               HHAT(1) = MAX(H0,HE_IN(1))
-              HHAT(2) = HE_IN(2)-(HHAT(1)-HE_IN(1))
+              HHAT(2) = MAX(H0,HE_IN(2)-(HHAT(1)-HE_IN(1)))
+!               HHAT(2) = HE_IN(2)-(HHAT(1)-HE_IN(1))
             END IF
             HE_MAX = ZERO ! Redefine max water depth based on new values (for elem_check
             HE_MAX_LOC = 1
@@ -607,3 +617,141 @@
       
       RETURN
       END SUBROUTINE WETDRY
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      SUBROUTINE SLOPELIMIT
+      
+      USE READ_DGINP, ONLY : P,NEGP,SLOPEM,DGBASIS,H0
+      USE GLOBALS,    ONLY : ZE,QE,NE,WEGP,IRK,PHIB,PHI,LE,WDFLG,          &
+     &                       DE_ED,G
+      USE SIZES,      ONLY : SZ,C12
+      
+      IMPLICIT NONE
+      
+      INTEGER  :: L,I,K,ind
+      REAL(SZ) :: ZESLP(NE),ZEAVG(NE)
+      REAL(SZ) :: QESLP(NE),QEAVG(NE)
+      REAL(SZ) :: A(3),SLP
+      
+      
+!.....Cycle through elements to assess cell averages
+      DO L = 1,NE
+        ZEAVG(L) = 0.D0
+        ZESLP(L) = 0.D0
+        
+        QEAVG(L) = 0.D0
+        QESLP(L) = 0.D0
+        DO I = 1,P+1
+          DO K = 1,NEGP
+            ZEAVG(L) = ZEAVG(L) + ZE(I,L,IRK+1)*PHI(I,K)*WEGP(K)
+            QEAVG(L) = QEAVG(L) + QE(I,L,IRK+1)*PHI(I,K)*WEGP(K)
+          END DO
+          ZESLP(L) = ZESLP(L) + ZE(I,L,IRK+1)*PHIB(I,2)
+          QESLP(L) = QESLP(L) + QE(I,L,IRK+1)*PHIB(I,2)
+        END DO
+        ZEAVG(L) = C12*ZEAVG(L)
+        ZESLP(L) = ZESLP(L)-ZEAVG(L)
+        
+        QEAVG(L) = C12*QEAVG(L)
+        QESLP(L) = QESLP(L)-QEAVG(L)
+      END DO
+!.....Apply slopelimiter if necessary (TVB)
+      DO L = 2,NE-1
+        IND = 999
+        A(:) = 999.d0
+        SLP = 999.d0
+        IF (ABS(ZESLP(L)).GT.SLOPEM*4.d0) THEN  ! Slope limit
+          A(1) = ZESLP(L);
+          A(2) = ZEAVG(L+1)-ZEAVG(L)
+          A(3) = ZEAVG(L)-ZEAVG(L-1)
+          CALL MINMOD(A,IND,SLP)
+          IF (IND.NE.1) THEN ! Adjust solution
+            print '(A,i,i,f16.8)', 'apply slope limit z', IRK, l, slp
+            ! Solution is zeavg(l) + A(ind)*x
+            IF (ADJUSTL(TRIM(DGBASIS)).EQ.'nodal') THEN
+              DO I = 1,P+1
+                ZE(I,L,IRK+1) = ZEAVG(L) + SLP*(-1.D0+2.D0*REAL(I-1)/REAL(P))
+              END DO
+            ELSE
+              ZE(1,L,IRK+1) = ZEAVG(L)
+              ZE(2,L,IRK+1) = SLP
+              DO I = 3,P+1
+                ZE(I,L,IRK+1) = 0.D0
+              END DO
+            END IF
+          END IF
+        END IF
+        
+        IND = 999
+        A(:) = 999.d0
+        SLP = 999.d0
+        IF (ABS(QESLP(L)).GT.SLOPEM*4.d0*10.d0) THEN  ! Slope limit
+          A(1) = QESLP(L);
+          A(2) = QEAVG(L+1)-QEAVG(L)
+          A(3) = QEAVG(L)-QEAVG(L-1)
+          CALL MINMOD(A,IND,SLP)
+          IF (IND.NE.1) THEN ! Adjust solution
+            print*, 'apply slope limit q'
+            ! Solution is qeavg(l) + A(ind)*x
+            IF (ADJUSTL(TRIM(DGBASIS)).EQ.'nodal') THEN
+              DO I = 1,P+1
+                QE(I,L,IRK+1) = QEAVG(L) + SLP*(-1.D0+2.D0*REAL(I-1)/REAL(P))
+              END DO
+            ELSE
+              QE(1,L,IRK+1) = QEAVG(L)
+              QE(2,L,IRK+1) = SLP
+              DO I = 3,P+1
+                QE(I,L,IRK+1) = 0.D0
+              END DO
+            END IF
+          END IF
+        END IF
+      END DO
+      
+      RETURN
+      END SUBROUTINE SLOPELIMIT
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      SUBROUTINE MINMOD(A,IND,SLP)
+      
+      USE SIZES, ONLY : SZ
+      
+      IMPLICIT NONE
+      REAL(SZ),INTENT(IN)  :: A(3)
+      INTEGER,INTENT(OUT)  :: IND
+      REAL(SZ),INTENT(OUT) :: SLP
+      INTEGER              :: I
+      REAL(SZ)             :: SGN
+      
+      IF (ABS(A(1)).LT.1D-12) THEN
+        IND = 1
+        GOTO 1101
+      ELSEIF (A(1).GT.0.D0) THEN
+        SGN = 1.D0
+      ELSE
+        SGN = -1.D0
+      END IF
+      
+      IND = 999
+      IF ( (SGN*A(2).GT.0.D0).AND.(SGN*A(3).GT.0.D0) ) THEN
+        IF ( (ABS(A(1)).LE.ABS(A(2))).AND.(ABS(A(1)).LE.ABS(A(3))) ) THEN
+          IND = 1
+        ELSE IF ( (ABS(A(2)).LE.ABS(A(1))).AND.(ABS(A(2)).LE.ABS(A(3))) ) THEN
+          IND = 2
+        ELSE IF ( (ABS(A(3)).LE.ABS(A(1))).AND.(ABS(A(3)).LE.ABS(A(2))) ) THEN
+          IND = 3
+        END IF
+        SLP = A(IND)
+      ELSE
+        IND = 0
+        SLP = 0.D0
+      END IF
+      
+      
+1101  RETURN
+      END SUBROUTINE MINMOD
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!

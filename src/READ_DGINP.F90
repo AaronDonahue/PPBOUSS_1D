@@ -43,11 +43,13 @@
       INTEGER, TARGET         :: IHOT
       INTEGER, TARGET         :: NRK
       INTEGER, TARGET         :: IWET
+      INTEGER, TARGET         :: ISLP
       ! Real Numbers
       REAL(SZ), TARGET        :: MaxTime
       REAL(SZ), TARGET        :: CFL_Adj
       REAL(SZ), TARGET        :: TIMESNAP
       REAL(SZ), TARGET        :: H0
+      REAL(SZ), TARGET        :: SLOPEM
 
       CONTAINS
 !..........................................................................!
@@ -303,7 +305,9 @@
       dginp(11)%key = "timesnap";       dginp(11)%rptr => TIMESNAP;       dginp(11)%required = .false.;    dginp(11)%rptr = -999.d0
       dginp(12)%key = "iwet";           dginp(12)%iptr => IWET;           dginp(12)%required = .false.;    dginp(12)%iptr = 0
       dginp(13)%key = "h0";             dginp(13)%rptr => H0;             dginp(13)%required = .false.;    dginp(13)%rptr = 0.d0
-      dginp(14)%key = "boundarytype";   dginp(14)%cptr => BOUNDTYPE;      dginp(14)%required = .false.;    dginp(14)%Cptr = "reflective"
+      dginp(14)%key = "boundarytype";   dginp(14)%cptr => BOUNDTYPE;      dginp(14)%required = .false.;    dginp(14)%cptr = "reflective"
+      dginp(15)%key = "islp";           dginp(15)%iptr => ISLP;           dginp(15)%required = .false.;    dginp(15)%iptr = 0
+      dginp(16)%key = "islpconstant";   dginp(16)%rptr => SLOPEM;         dginp(16)%required = .false.;    dginp(16)%rptr = 0.d0
 
       
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -19,6 +19,12 @@
             ERRLOC(2) = I
             GOTO 100
           END IF
+          IF (ISNAN(QE(I,L,1)).OR.ABS(QE(I,L,1)).GT.9999.D0) THEN
+            ERROR     = 2
+            ERRLOC(1) = L
+            ERRLOC(2) = I
+            GOTO 100
+          END IF
         END DO
       END DO
       

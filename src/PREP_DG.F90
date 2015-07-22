@@ -56,9 +56,8 @@
       ALLOCATE(ZE(P+1,NE,NRK+1),QE(P+1,NE,NRK+1))
       ALLOCATE(ZE_RHS(P+1,NE,NRK),QE_RHS(P+1,NE,NRK))
 !.....Solution Status Matrices
-      ALLOCATE(WDFLG(NE))
-      
-      
+      ALLOCATE(WDFLG(NE)
+
 !.....Initialize certain variables
       PHI(:,:)      = 0.D0
       DPHI(:,:)     = 0.D0
@@ -996,8 +995,8 @@
       END DO
       
       DT        = MINLE/(LAMMAX*(2*P+1))*CFL_ADJ
-      TIMESTEPS = MAXTIME/DT
-      DT        = MAXTIME/TIMESTEPS
+      TIMESTEPS = CEILING(MAXTIME/DT)
+      DT        = MAXTIME/DBLE(TIMESTEPS)
       
 !.....If a timesnap is designated then determine frequency of output
       IF (TIMESNAP.LE.-999D0) THEN
@@ -1005,13 +1004,14 @@
       ELSE IF (TIMESNAP.LE.DT) THEN
         TSNAP = 1           ! Output at every step
       ELSE
-        TSNAP = TIMESNAP/DT
-        DT    = TIMESNAP/TSNAP
-        TIMESTEPS = MAXTIME/DT
+        TSNAP = CEILING(TIMESNAP/DT)
+        DT    = TIMESNAP/DBLE(TSNAP)
+        TIMESTEPS = CEILING(MAXTIME/DT)
       END IF
             
       PRINT "(A)", " "
-      PRINT "(A12,F16.8,A12)", "     DT = ",DT,"            "      
+      PRINT "(A14,F16.8,A14)", "         DT = ",DT,"            "      
+      PRINT "(A14,I,A14)", "Total Steps = ",TIMESTEPS,"            "
       PRINT "(A)", " "
       
 

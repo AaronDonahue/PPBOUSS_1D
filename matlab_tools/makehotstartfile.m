@@ -1,20 +1,20 @@
 %% Script to construct hotstart file
 hotrun = 'test';
 hottype = 'NODAL';
-% hotfile = 'dambreak.67';
-hotfile = 'riemann.67';
+hotfile = 'dambreak.67';
+% hotfile = 'riemann.67';
 % hotfile = 'parabolic.67';
 
 h0 = 0.00001;
-p = 1;
+p = 2;
 
 if p == 0
     hottype = 'MODAL';
 end
 %% Read grid file
 % gridfile = 'fort.14';
-% gridfile = 'dambreak.14';
-gridfile = 'riemann.14';
+gridfile = 'dambreak.14';
+% gridfile = 'riemann.14';
 % gridfile = 'parabolic.14';
 fid = fopen(gridfile);
 tmp = textscan(fid,'%f %f',1,'headerlines',1);
@@ -45,10 +45,10 @@ if strcmp(hottype,'NODAL')
 end
 
 %% Hotstart z and q
-% zfun = @(x)0*x-d+10*(x<0)+0*(x>=0);
+zfun = @(x)0*x-d+10*(x<0)+0*(x>=0);
 % zfun = @(x)0.05*exp(-x.^2);
 % zfun = @(x)0*x+0.1;
-zfun = @(x)5*(x<=0)+10*(x>0);
+% zfun = @(x)5*(x<=0)+10*(x>0);
 % zfun = @(x)1/(1-0.41884)+1.6*10^(-7)*(0.41884^2-1)*x.^2/(1+0.41884)^2;
 % ufun = @(x)0*x;
 ufun = @(x)40*(x>0);
