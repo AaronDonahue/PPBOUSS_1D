@@ -2,7 +2,7 @@
 !==========================================================================!
       SUBROUTINE PREP_DG
       
-      USE READ_DGINP, ONLY : READ_INPUT,IHOT
+      USE READ_DGINP, ONLY : READ_INPUT,IHOT,NWP
       USE GLOBALS,    ONLY : IRK
       
       IMPLICIT NONE
@@ -29,7 +29,10 @@
 !.....Initialize the wet/dry status of the solution
       IRK = 0
       CALL WETDRY
-!       STOP
+!.....Setup Nodal Attributes, if needed
+      IF (NWP.GT.0) THEN
+        CALL GET_NODAL_ATTR
+      END IF
 
       RETURN
       END SUBROUTINE PREP_DG
@@ -40,7 +43,7 @@
 
       USE GLOBALS,    ONLY : PHI,DPHI,PHIB,DPHIB,PSI,DPSI,PSIB,DPSIB,      &
      &                    ATVD,BTVD,TTVD,MDG,DGPIV,MCG,CGPIV,NE,ZE,QE,     &
-     &                    ZE_RHS,QE_RHS,WDFLG
+     &                    ZE_RHS,QE_RHS,WDFLG,PD,PB,MANN,SPNG_GEN,SPNG_ABS
       USE READ_DGINP, ONLY : P,NRK,NEGP
       
       IMPLICIT NONE
@@ -56,7 +59,12 @@
       ALLOCATE(ZE(P+1,NE,NRK+1),QE(P+1,NE,NRK+1))
       ALLOCATE(ZE_RHS(P+1,NE,NRK),QE_RHS(P+1,NE,NRK))
 !.....Solution Status Matrices
-      ALLOCATE(WDFLG(NE)
+      ALLOCATE(WDFLG(NE))
+!.....Pressure Matrices
+      ALLOCATE(PD(P+1,NE,NRK+1),PB(P+1,NE,NRK+1))
+!.....Nodal Attributes
+      ALLOCATE(MANN(NE))
+      ALLOCATE(SPNG_GEN(NE),SPNG_ABS(NE))
 
 !.....Initialize certain variables
       PHI(:,:)      = 0.D0
@@ -74,9 +82,13 @@
       ZE(:,:,:)     = 0.D0
       QE(:,:,:)     = 0.D0
       ZE_RHS(:,:,:) = 0.D0
-      QE_RHS(:,:,:) = 0.D0
-      
+      QE_RHS(:,:,:) = 0.D0      
       WDFLG(:)      = 1
+      PB(:,:,:)     = 0.D0
+      PD(:,:,:)     = 0.D0
+      MANN(:)       = 0.D0
+      SPNG_GEN(:)   = 0.D0
+      SPNG_ABS(:)   = 0.D0
       
       RETURN
       END SUBROUTINE VARI_ALLOCATE
@@ -88,7 +100,8 @@
       USE GLOBALS,    ONLY : PHI,DPHI,PHIB,DPHIB,PSI,DPSI,PSIB,DPSIB,      &
      &                    ATVD,BTVD,TTVD,MDG,DGPIV,MCG,CGPIV,ZE,QE,        &
      &                    ZE_RHS,QE_RHS,WEGP,XEGP,ATVD,BTVD,TTVD,X,LE,     &
-     &                    DE_ED,DE_IN,DX_IN,WDFLG
+     &                    DE_ED,DE_IN,DX_IN,WDFLG,PD,PB,MANN,SPNG_GEN,     &
+     &                    SPNG_ABS
       
       IMPLICIT NONE
       
@@ -111,6 +124,11 @@
       DEALLOCATE(DE_IN,DX_IN)
 !.....Status variables
       DEALLOCATE(WDFLG)
+!.....Pressure Matrices
+      DEALLOCATE(PD,PB)
+!.....Nodal Attributes
+      DEALLOCATE(MANN)
+      DEALLOCATE(SPNG_GEN,SPNG_ABS)
       
       RETURN
       END SUBROUTINE VARI_DEALLOCATE
@@ -827,7 +845,7 @@
       
       INQUIRE(FILE='./'//ADJUSTL(TRIM(hotstart_file)), EXIST = file_exists)
       IF(file_exists == .FALSE.) THEN
-        PRINT*, "hotstart file file does not exist"
+        PRINT*, "hotstart file does not exist"
         CALL EXIT
       ENDIF
       PRINT "(A)", "---------------------------------------------"
@@ -1014,10 +1032,120 @@
       PRINT "(A14,I,A14)", "Total Steps = ",TIMESTEPS,"            "
       PRINT "(A)", " "
       
-
-      
-      
       END SUBROUTINE SETUP_TIME
+!..........................................................................!
+!==========================================================================!
+!..........................................................................!
+      SUBROUTINE GET_NODAL_ATTR
+      
+      USE READ_DGINP, ONLY : NWP
+      USE GLOBALS,    ONLY : MANN,NE,SPNG_GEN,SPNG_ABS
+      USE SIZES,      ONLY : SZ
+      
+      IMPLICIT NONE
+      LOGICAL              :: file_exists
+      CHARACTER(LEN=100)   :: JC1,ATTR_NAME,ATTR_UNIT
+      INTEGER              :: I,NA,NE_TST,NN_TST,NWP_TST,ELEM
+      INTEGER              :: ATTR_SIZE,ATTR_NONDEF
+      REAL(SZ),ALLOCATABLE :: ATTR_DEFAULT(:)
+      REAL(SZ)             :: VALUE
+      
+!..... Make sure nodal attributes file exists
+      INQUIRE(FILE='fort.13', EXIST = file_exists)
+      IF(file_exists == .FALSE.) THEN
+        PRINT*, "nodal attributes file (fort.13) does not exist"
+        CALL EXIT
+      ENDIF
+!..... If so open it and read in nodal attributes
+      PRINT "(A)", "---------------------------------------------"
+      PRINT "(A)", "       Read nodal attributes file            "
+      PRINT "(A)", "---------------------------------------------"
+      PRINT "(A)", " "
+      OPEN(UNIT=13,FILE='fort.13',ACTION='READ')
+      
+!.....Begin reading in nodal attributes
+      READ(13,'(A)') JC1
+      READ(13,*) NE_TST, NN_TST
+      READ(13,*) NWP_TST
+      ! Check to make sure the number of elements in file matches grid
+      IF (NE_TST.NE.NE) THEN
+        PRINT("(A)"), "*** ERROR: Number of elements in attributes file does not ***"  
+        PRINT("(A)"), "           match the gridfile. "
+        PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+        STOP
+      END IF
+      ! Check to make sure the number of attributes matches NWP
+      IF (NWP_TST.NE.NWP) THEN
+        PRINT("(A)"), "*** ERROR: Number of attributes in file does not ***"  
+        PRINT("(A)"), "           match the fort.wasupp file. "
+        PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+        STOP
+      END IF
+      ! Read in default values
+      DO NA = 1,NWP
+        READ(13,'(A)') ATTR_NAME
+        READ(13,'(A)') ATTR_UNIT
+        READ(13,*) ATTR_SIZE
+        ALLOCATE(ATTR_DEFAULT(ATTR_SIZE))
+        READ(13,'(<ATTR_SIZE>F)') (ATTR_DEFAULT(I),I=1,ATTR_SIZE)
+        SELECT CASE (TRIM(ATTR_NAME))
+          CASE ('mannings_n_at_sea_floor')
+            DO I = 1,NE
+              MANN(I) = ATTR_DEFAULT(1)
+            END DO
+          CASE ('sponge_generation_layer')
+            DO I = 1,NE
+              SPNG_GEN(I) = ATTR_DEFAULT(1)
+            END DO
+          CASE ('sponge_absorbing_layer')
+            DO I = 1,NE
+              SPNG_ABS(I) = ATTR_DEFAULT(1)
+            END DO
+          CASE DEFAULT
+            PRINT("(A,A,A)"), "*** ERROR: Attribute ",TRIM(ATTR_NAME)," does not match available attributes ***"  
+            PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+            STOP
+        END SELECT
+        DEALLOCATE(ATTR_DEFAULT)
+      END DO
+      ! Adjust nondefault values
+      DO NA = 1,NWP
+        READ(13,'(A)') ATTR_NAME
+        READ(13,*) ATTR_NONDEF
+        IF (ATTR_NONDEF.GT.0) THEN
+          SELECT CASE (TRIM(ATTR_NAME))
+            CASE ('mannings_n_at_sea_floor')
+              DO I = 1,ATTR_NONDEF
+                READ(13,*) ELEM, VALUE
+                MANN(ELEM) = VALUE
+              END DO              
+            CASE ('sponge_generation_layer')
+              DO I = 1,ATTR_NONDEF
+                READ(13,*) ELEM, VALUE
+                SPNG_GEN(ELEM) = VALUE
+              END DO
+            CASE ('sponge_absorbing_layer')
+              DO I = 1,ATTR_NONDEF
+                READ(13,*) ELEM, VALUE
+                SPNG_ABS(ELEM) = VALUE
+              END DO
+            CASE DEFAULT
+              PRINT("(A,A,A)"), "*** ERROR: Attribute ",TRIM(ATTR_NAME)," does not match available attributes ***"  
+              PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+              STOP
+          END SELECT          
+        END IF
+        PRINT '(A,A)','Finished loading ',ATTR_NAME
+      END DO
+      
+      CLOSE(13)
+      PRINT "(A)", "---------------------------------------------"
+      PRINT "(A)", "   Finished reading nodal attributes file    "
+      PRINT "(A)", "---------------------------------------------"
+      PRINT "(A)", " "
+      
+      RETURN
+      END SUBROUTINE GET_NODAL_ATTR
 !..........................................................................!
 !==========================================================================!
 !==========================================================================!      

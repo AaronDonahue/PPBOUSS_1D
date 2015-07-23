@@ -22,7 +22,7 @@
 !       INTEGER                 :: NEGP ! In READ_DGINP
       REAL(SZ),ALLOCATABLE    :: WEGP(:),XEGP(:)
       
-      REAL(SZ)                :: DT,TIME ! MAXTIME  ! In READ_DGINP
+      REAL(SZ)                :: DT,TIME,TIME_RK ! MAXTIME  ! In READ_DGINP
       INTEGER                 :: TIMESTEPS,TSNAP
       REAL(SZ),ALLOCATABLE    :: ATVD(:,:),BTVD(:,:),TTVD(:)
       INTEGER                 :: IRK !NRK  ! In READ_DGINP
@@ -39,5 +39,10 @@
       REAL(SZ),ALLOCATABLE    :: DE_IN(:,:),DX_IN(:,:),DE_ED(:)
 !.....Solution status variables
       INTEGER,ALLOCATABLE     :: WDFLG(:)
+!.....Pressure Variables
+      REAL(SZ),ALLOCATABLE    :: PD(:,:,:),PB(:,:,:)
+!.....Nodal Attributes
+      REAL(SZ),ALLOCATABLE    :: MANN(:)
+      REAL(SZ),ALLOCATABLE    :: SPNG_GEN(:),SPNG_ABS(:)
 
       END MODULE GLOBALS

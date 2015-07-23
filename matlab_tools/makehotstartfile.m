@@ -6,7 +6,7 @@ hotfile = 'dambreak.67';
 % hotfile = 'parabolic.67';
 
 h0 = 0.00001;
-p = 2;
+p = 1;
 
 if p == 0
     hottype = 'MODAL';

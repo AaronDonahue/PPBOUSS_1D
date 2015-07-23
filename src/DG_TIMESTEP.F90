@@ -3,7 +3,7 @@
       SUBROUTINE DG_TIMESTEP
       
       USE GLOBALS,    ONLY : IRK,ZE_RHS,QE_RHS,ZE,QE,ATVD,BTVD,DT,NE,      &
-     &                       WDFLG
+     &                       WDFLG,TTVD,DT,TIME,TIME_RK
       USE SIZES,      ONLY : SZ
       USE READ_DGINP, ONLY : NRK,P,IWET,ISLP
 
@@ -16,13 +16,16 @@
 !.......Zero out the Right Hand Side vectors for ZE and QE for this stage
         ZE_RHS(:,:,IRK) = 0.D0
         QE_RHS(:,:,IRK) = 0.D0
-
+!.......Time at this stage
+        TIME_RK = TIME+TTVD(IRK)*DT
 !.......Build RHS vectors for DG solution
         CALL DG_AREA_INTEGRALS() ! Calculate area integral component
 
         CALL DG_INTERNAL_EDGES() ! Calculate internal edge integral (fluxes)
   
         CALL DG_BOUNDARY_EDGES() ! Calculate boundary integrals of domain (fluxes)
+        
+        CALL SWE_RHS_VARIABLES() ! Calculate the addition to the RHS of the SWE
      
 !.......Finish RHS vectors by multiplying by the inverse of the mass matrix
         CALL COMPLETE_RHS()
@@ -331,6 +334,85 @@
       
       RETURN
       END SUBROUTINE DG_BOUNDARY_EDGES
+!..........................................................................!
+!==========================================================================!
+!..........................................................................!
+      SUBROUTINE SWE_RHS_VARIABLES
+      
+      USE READ_DGINP, ONLY : NEGP,P,INONHYDRO
+      USE GLOBALS,    ONLY : PD,PB,WDFLG,LE,PSI,DPSI,PHI,DPHI,WEGP,ZE_RHS, &
+     &                       QE_RHS,DE_IN,DX_IN,IRK,NE,G,ZE,QE,MANN,X,XEGP,&
+     &                       TIME_RK,SPNG_GEN,SPNG_ABS
+      USE SIZES,      ONLY : SZ,C12
+      
+      IMPLICIT NONE
+      INTEGER  :: L,K,I
+      REAL(SZ) :: ZE_FI,ZE_SI,QE_FI,QE_SI
+      REAL(SZ) :: QE_IN,ZE_IN,HE_IN,UE_IN
+      REAL(SZ) :: PDX_IN,PB_IN
+      REAL(SZ) :: ZE_OUT,QE_OUT,ZE_IMPOSED,QE_IMPOSED,XL,XIN
+      
+!.....Determine Nonhydrostatic pressure contribution
+      CALL NONHYDRO
+!.....Add extra variables to RHS vectors
+      DO L = 1,NE
+        IF (WDFLG(L).NE.0) THEN
+          DO K = 1,NEGP
+            ZE_IN = 0.D0
+            QE_IN = 0.D0
+            
+            PDX_IN = 0.D0
+            PB_IN = 0.D0
+            DO I = 1,P+1
+              ZE_IN = ZE_IN + ZE(I,L,IRK)*PHI(I,K)
+              QE_IN = QE_IN + QE(I,L,IRK)*PHI(I,K)
+              
+              PDX_IN = PDX_IN + PD(I,L,IRK)*DPSI(I,K)/(C12*LE(L))
+              PB_IN  = PB_IN  + PB(I,L,IRK)*PSI(I,K)
+            END DO
+            HE_IN = ZE_IN + DE_IN(L,K)
+            UE_IN = QE_IN/HE_IN
+            
+            ZE_FI = 0.D0
+            ZE_SI = 0.D0
+            QE_FI = 0.D0
+            QE_SI = 0.D0
+            
+            ! Pressure Terms
+            IF (INONHYDRO.NE.0) THEN
+              QE_SI = QE_SI + DX_IN(L,K)*PB_IN - PDX_IN
+            END IF
+            ! Bottom Friction (Mannings N)
+            IF (MANN(L).GT.0.D0) THEN
+              QE_SI = QE_SI - G*MANN(L)**2*UE_IN*ABS(UE_IN)/(HE_IN**(1.D0/3.D0))
+            END IF
+            ! Sponge Layer Absorbing
+            IF (SPNG_ABS(L).GT.0.D0) THEN
+              ZE_SI = ZE_SI - SPNG_ABS(L)*ZE_IN
+              QE_SI = QE_SI - SPNG_ABS(L)*QE_IN
+            END IF
+            ! Sponge Layer Generation
+            IF (SPNG_GEN(L).GT.0.D0) THEN              
+              XL    = X(L)
+              XIN   = XL + C12*LE(L)*(XEGP(K)+1.D0)
+              ZE_OUT = ZE_IMPOSED(XIN,TIME_RK)
+              QE_OUT = QE_IMPOSED(XIN,TIME_RK,ZE_OUT)
+              ZE_SI = ZE_SI + SPNG_GEN(L)*(ZE_OUT-ZE_IN)
+              QE_SI = QE_SI + SPNG_GEN(L)*(QE_OUT-QE_IN)
+            END IF
+                  
+            DO I = 1,P+1
+              ZE_RHS(I,L,IRK) = ZE_RHS(I,L,IRK) + (ZE_FI*DPHI(I,K) +       &
+     &                            ZE_SI*PHI(I,K)*LE(L)*C12)*WEGP(K)
+              QE_RHS(I,L,IRK) = QE_RHS(I,L,IRK) + (QE_FI*DPHI(I,K) +       &
+     &                            QE_SI*PHI(I,K)*LE(L)*C12)*WEGP(K)
+            END DO
+            
+          END DO
+        END IF
+      END DO
+      
+      END SUBROUTINE SWE_RHS_VARIABLES
 !..........................................................................!
 !==========================================================================!
 !..........................................................................!
@@ -667,7 +749,6 @@
           A(3) = ZEAVG(L)-ZEAVG(L-1)
           CALL MINMOD(A,IND,SLP)
           IF (IND.NE.1) THEN ! Adjust solution
-            print '(A,i,i,f16.8)', 'apply slope limit z', IRK, l, slp
             ! Solution is zeavg(l) + A(ind)*x
             IF (ADJUSTL(TRIM(DGBASIS)).EQ.'nodal') THEN
               DO I = 1,P+1
@@ -692,7 +773,6 @@
           A(3) = QEAVG(L)-QEAVG(L-1)
           CALL MINMOD(A,IND,SLP)
           IF (IND.NE.1) THEN ! Adjust solution
-            print*, 'apply slope limit q'
             ! Solution is qeavg(l) + A(ind)*x
             IF (ADJUSTL(TRIM(DGBASIS)).EQ.'nodal') THEN
               DO I = 1,P+1
@@ -752,6 +832,35 @@
       
 1101  RETURN
       END SUBROUTINE MINMOD
+      
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      FUNCTION ZE_IMPOSED(XIN,TIN) RESULT(YOUT)
+      
+      USE SIZES, ONLY : SZ
+      
+      IMPLICIT NONE
+      REAL(SZ) :: XIN,TIN,YOUT
+      
+      YOUT = 0.D0
+      
+      RETURN
+      END FUNCTION ZE_IMPOSED
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      FUNCTION QE_IMPOSED(XIN,TIN,ZIN) RESULT(YOUT)
+      
+      USE SIZES, ONLY : SZ
+      
+      IMPLICIT NONE
+      REAL(SZ) :: XIN,TIN,ZIN,YOUT
+      
+      YOUT = 0.D0
+      
+      RETURN
+      END FUNCTION QE_IMPOSED
 !--------------------------------------------------------------------------!
 !==========================================================================!
 !--------------------------------------------------------------------------!

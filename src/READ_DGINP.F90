@@ -44,6 +44,8 @@
       INTEGER, TARGET         :: NRK
       INTEGER, TARGET         :: IWET
       INTEGER, TARGET         :: ISLP
+      INTEGER, TARGET         :: INONHYDRO
+      INTEGER, TARGET         :: NWP
       ! Real Numbers
       REAL(SZ), TARGET        :: MaxTime
       REAL(SZ), TARGET        :: CFL_Adj
@@ -308,6 +310,8 @@
       dginp(14)%key = "boundarytype";   dginp(14)%cptr => BOUNDTYPE;      dginp(14)%required = .false.;    dginp(14)%cptr = "reflective"
       dginp(15)%key = "islp";           dginp(15)%iptr => ISLP;           dginp(15)%required = .false.;    dginp(15)%iptr = 0
       dginp(16)%key = "islpconstant";   dginp(16)%rptr => SLOPEM;         dginp(16)%required = .false.;    dginp(16)%rptr = 0.d0
+      dginp(17)%key = "inonhydro";      dginp(17)%iptr => INONHYDRO;      dginp(17)%required = .false.;    dginp(17)%iptr = 0
+      dginp(18)%key = "NWP";            dginp(18)%iptr => NWP;            dginp(18)%required = .false.;    dginp(18)%iptr = 0
 
       
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
