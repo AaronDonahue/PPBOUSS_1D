@@ -3,9 +3,9 @@
       SUBROUTINE DG_TIMESTEP
       
       USE GLOBALS,    ONLY : IRK,ZE_RHS,QE_RHS,ZE,QE,ATVD,BTVD,DT,NE,      &
-     &                       WDFLG,TTVD,DT,TIME,TIME_RK
+     &                       WDFLG,TTVD,DT,TIME,TIME_RK,DISPFLG,PD,PB
       USE SIZES,      ONLY : SZ
-      USE READ_DGINP, ONLY : NRK,P,IWET,ISLP
+      USE READ_DGINP, ONLY : NRK,P,IWET,ISLP,INONHYDRO,IBREAK
 
       IMPLICIT NONE
       INTEGER	:: L,I,K
@@ -54,8 +54,13 @@
         IF (ISLP.GT.0) THEN          
           CALL SLOPELIMIT
         END IF
-
-        
+!.......Update NODISP flag is needed
+        IF (INONHYDRO.NE.0.AND.IBREAK.NE.0) THEN
+          CALL BREAKING
+          DO L = 1,NE
+            DISPFLG(L) = MIN(DISPFLG(L),WDFLG(L))
+          END DO
+        END IF
         
       END DO
 !---------------------------------------------------------------------------!
@@ -66,7 +71,10 @@
         ZE(I,:,1) = ZE(I,:,NRK+1)
         QE(I,:,1) = QE(I,:,NRK+1)
         ZE(I,:,2:NRK+1) = 0.D0
-        QE(I,:,2:NRK+1) = 0.D0                
+        QE(I,:,2:NRK+1) = 0.D0
+        
+        PD(I,:,1) = PD(I,:,NRK)
+        PB(I,:,1) = PB(I,:,NRK)
       END DO
 
       RETURN
@@ -125,7 +133,7 @@
       
       USE GLOBALS,    ONLY : NE,ZE,QE,PHIB,DE_ED,G,ZE_RHS,QE_RHS,IRK,GHAT, &
      &                    FHAT,ZE_LT,ZE_RT,QE_LT,QE_RT,HE_LT,HE_RT,FH_LT,  &
-     &                    FH_RT,GH_LT,GH_RT,WDFLG
+     &                    FH_RT,GH_LT,GH_RT,WDFLG,PD,PSIB
       USE SIZES,      ONLY : SZ,C12
       USE READ_DGINP, ONLY : P
       
@@ -133,6 +141,7 @@
       
       INTEGER	:: I,L
       REAL(SZ)  :: FHAT_LT,FHAT_RT,GHAT_LT,GHAT_RT
+      REAL(SZ)  :: PD_LT,PD_RT
       REAL(SZ)  :: GTMP
       
 !.....Cycle through all the internal edges, 2...NE
@@ -146,12 +155,18 @@
           ZE_RT = 0.D0
           QE_LT = 0.D0
           QE_RT = 0.D0
+          
+          PD_LT = 0.D0
+          PD_RT = 0.D0
           DO I = 1,P+1
             ZE_LT = ZE_LT + ZE(I,L-1,IRK)*PHIB(I,2)
             ZE_RT = ZE_RT + ZE(I,L,IRK)*PHIB(I,1)
           
             QE_LT = QE_LT + QE(I,L-1,IRK)*PHIB(I,2)
             QE_RT = QE_RT + QE(I,L,IRK)*PHIB(I,1)
+            
+!             PD_LT = PD_LT + PD(I,L-1,IRK)*PSIB(I,2)
+!             PD_RT = PD_RT + PD(I,L,IRK)*PSIB(I,1)
           END DO
           HE_LT = ZE_LT + DE_ED(L)
           HE_RT = ZE_RT + DE_ED(L)
@@ -159,8 +174,8 @@
           FH_LT = QE_LT ! ZE left flux term
           FH_RT = QE_RT ! ZE right flux term
         
-          GH_LT = (QE_LT**2)/HE_LT + C12*G*ZE_LT*(2.D0*DE_ED(L)+ZE_LT) ! QE left flux term
-          GH_RT = (QE_RT**2)/HE_RT + C12*G*ZE_RT*(2.D0*DE_ED(L)+ZE_RT) ! QE right flux term
+          GH_LT = (QE_LT**2)/HE_LT + C12*G*ZE_LT*(2.D0*DE_ED(L)+ZE_LT)+PD_LT ! QE left flux term
+          GH_RT = (QE_RT**2)/HE_RT + C12*G*ZE_RT*(2.D0*DE_ED(L)+ZE_RT)+PD_RT ! QE right flux term
 !.........Determine numerical flux based on left and right flux terms
           CALL GET_FLUX
 !.........Assign initial flux calculations
@@ -244,12 +259,15 @@
       
       USE GLOBALS,    ONLY : ZE,QE,PHIB,DE_ED,G,IRK,NE,NN,FHAT,GHAT,       &
      &                    ZE_RHS,QE_RHS,ZE_LT,ZE_RT,QE_LT,QE_RT,HE_LT,     &
-     &                    HE_RT,FH_LT,FH_RT,GH_LT,GH_RT,WDFLG
+     &                    HE_RT,FH_LT,FH_RT,GH_LT,GH_RT,WDFLG,TIME_RK,     &
+     &                    SPNG_GEN,X,PD,PSIB
       USE SIZES,      ONLY : SZ,C12
       USE READ_DGINP, ONLY : P,BOUNDTYPE
       
       IMPLICIT NONE
       INTEGER	:: I
+      REAL(SZ)  :: PD_RT,PD_LT
+      REAL(SZ)  :: ZE_IMPOSED,QE_IMPOSED
       
 !----------------------------------------------
 !.....Left-hand boundary "edge" at node 1
@@ -259,30 +277,36 @@
 !.......Build internal edge solution for node 1
         ZE_RT = 0.D0
         QE_RT = 0.D0
+        PD_RT = 0.D0
       
         DO I = 1,P+1
           ZE_RT = ZE_RT + ZE(I,1,IRK)*PHIB(I,1)
           QE_RT = QE_RT + QE(I,1,IRK)*PHIB(I,1)
+!           PD_RT = PD_RT + PD(I,1,IRK)*PSIB(I,1)
         END DO
-!.......Left hand side boundary condition (reflection)
-        IF (ADJUSTL(TRIM(BOUNDTYPE)).EQ.'radiant') THEN
+!.......Left hand side boundary condition
+        IF (SPNG_GEN(1,1).GT.0.D0) THEN
+          ZE_LT = ZE_IMPOSED(X(1),TIME_RK)
+          QE_LT = QE_IMPOSED(X(1),TIME_RK,ZE_LT)
+          PD_LT = PD_RT
+        ELSEIF (ADJUSTL(TRIM(BOUNDTYPE)).EQ.'radiant') THEN
           ZE_LT = ZE_RT
           QE_LT = QE_RT
-        ELSE        ! Else reflective boundary
+          PD_LT = PD_RT
+        ELSE             ! Else reflective boundary
           ZE_LT =  ZE_RT
           QE_LT = -QE_RT
+          PD_LT =  PD_RT
         END IF
         
-        
-      
         HE_RT = ZE_RT+DE_ED(1)
         HE_LT = ZE_LT+DE_ED(1)
 !.......Calculate left and right flux values
         FH_LT = QE_LT
         FH_RT = QE_RT
         
-        GH_LT = (QE_LT**2)/HE_LT + C12*G*ZE_LT*(2.D0*DE_ED(1)+ZE_LT)
-        GH_RT = (QE_RT**2)/HE_RT + C12*G*ZE_RT*(2.D0*DE_ED(1)+ZE_RT)
+        GH_LT = (QE_LT**2)/HE_LT + C12*G*ZE_LT*(2.D0*DE_ED(1)+ZE_LT)+PD_LT
+        GH_RT = (QE_RT**2)/HE_RT + C12*G*ZE_RT*(2.D0*DE_ED(1)+ZE_RT)+PD_RT
 !.......Calculate flux value across boundary
         CALL GET_FLUX
 !.......Update RHS vectors
@@ -299,18 +323,26 @@
 !.......Build internal edge solution for node NN
         ZE_LT = 0.D0
         QE_LT = 0.D0
+        PD_LT = 0.D0
       
         DO I = 1,P+1
           ZE_LT = ZE_LT + ZE(I,NE,IRK)*PHIB(I,2)
           QE_LT = QE_LT + QE(I,NE,IRK)*PHIB(I,2)
+!           PD_LT = PD_LT + PD(I,NE,IRK)*PHIB(I,2)
         END DO
-!.......Right hand side boundary condition (reflection)
-        IF (ADJUSTL(TRIM(BOUNDTYPE)).EQ.'radiant') THEN
+!.......Right hand side boundary condition
+        IF (SPNG_GEN(NE,1).GT.0.D0) THEN
+          ZE_RT = ZE_IMPOSED(X(NE+1),TIME_RK)
+          QE_RT = QE_IMPOSED(X(NE+1),TIME_RK,ZE_RT)
+          PD_RT = PD_LT
+        ELSEIF (ADJUSTL(TRIM(BOUNDTYPE)).EQ.'radiant') THEN
           ZE_RT = ZE_LT
           QE_RT = QE_LT
-        ELSE
+          PD_RT = PD_LT
+        ELSE            ! Else reflective boundary 
           ZE_RT =  ZE_LT
           QE_RT = -QE_LT
+          PD_RT =  PD_LT
         END IF
         
         
@@ -321,8 +353,8 @@
         FH_LT = QE_LT
         FH_RT = QE_RT
         
-        GH_LT = (QE_LT**2)/HE_LT + C12*G*ZE_LT*(2.D0*DE_ED(1)+ZE_LT)
-        GH_RT = (QE_RT**2)/HE_RT + C12*G*ZE_RT*(2.D0*DE_ED(1)+ZE_RT)
+        GH_LT = (QE_LT**2)/HE_LT + C12*G*ZE_LT*(2.D0*DE_ED(1)+ZE_LT)+PD_LT
+        GH_RT = (QE_RT**2)/HE_RT + C12*G*ZE_RT*(2.D0*DE_ED(1)+ZE_RT)+PD_RT
 !.......Calculate flux value across boundary
         CALL GET_FLUX
 !.......Update RHS vectors
@@ -342,14 +374,14 @@
       USE READ_DGINP, ONLY : NEGP,P,INONHYDRO
       USE GLOBALS,    ONLY : PD,PB,WDFLG,LE,PSI,DPSI,PHI,DPHI,WEGP,ZE_RHS, &
      &                       QE_RHS,DE_IN,DX_IN,IRK,NE,G,ZE,QE,MANN,X,XEGP,&
-     &                       TIME_RK,SPNG_GEN,SPNG_ABS
+     &                       TIME_RK,SPNG_GEN,SPNG_ABS,DISPFLG
       USE SIZES,      ONLY : SZ,C12
       
       IMPLICIT NONE
       INTEGER  :: L,K,I
       REAL(SZ) :: ZE_FI,ZE_SI,QE_FI,QE_SI
       REAL(SZ) :: QE_IN,ZE_IN,HE_IN,UE_IN
-      REAL(SZ) :: PDX_IN,PB_IN
+      REAL(SZ) :: PDX_IN,PB_IN,PD_IN
       REAL(SZ) :: ZE_OUT,QE_OUT,ZE_IMPOSED,QE_IMPOSED,XL,XIN
       
 !.....Determine Nonhydrostatic pressure contribution
@@ -363,12 +395,14 @@
             
             PDX_IN = 0.D0
             PB_IN = 0.D0
+            PD_IN = 0.D0
             DO I = 1,P+1
               ZE_IN = ZE_IN + ZE(I,L,IRK)*PHI(I,K)
               QE_IN = QE_IN + QE(I,L,IRK)*PHI(I,K)
               
               PDX_IN = PDX_IN + PD(I,L,IRK)*DPSI(I,K)/(C12*LE(L))
               PB_IN  = PB_IN  + PB(I,L,IRK)*PSI(I,K)
+              PD_IN  = PD_IN  + PD(I,L,IRK)*PSI(I,K)
             END DO
             HE_IN = ZE_IN + DE_IN(L,K)
             UE_IN = QE_IN/HE_IN
@@ -379,26 +413,27 @@
             QE_SI = 0.D0
             
             ! Pressure Terms
-            IF (INONHYDRO.NE.0) THEN
+            IF (INONHYDRO.NE.0.AND.DISPFLG(L).NE.0) THEN
+!               QE_FI = QE_FI + PD_IN
               QE_SI = QE_SI + DX_IN(L,K)*PB_IN - PDX_IN
             END IF
             ! Bottom Friction (Mannings N)
-            IF (MANN(L).GT.0.D0) THEN
-              QE_SI = QE_SI - G*MANN(L)**2*UE_IN*ABS(UE_IN)/(HE_IN**(1.D0/3.D0))
+            IF (MANN(L,K).GT.0.D0) THEN
+              QE_SI = QE_SI - G*MANN(L,K)**2*UE_IN*ABS(UE_IN)/(HE_IN**(1.D0/3.D0))
             END IF
             ! Sponge Layer Absorbing
-            IF (SPNG_ABS(L).GT.0.D0) THEN
-              ZE_SI = ZE_SI - SPNG_ABS(L)*ZE_IN
-              QE_SI = QE_SI - SPNG_ABS(L)*QE_IN
+            IF (SPNG_ABS(L,K).GT.0.D0) THEN
+              ZE_SI = ZE_SI - SPNG_ABS(L,K)*ZE_IN
+              QE_SI = QE_SI - SPNG_ABS(L,K)*QE_IN
             END IF
             ! Sponge Layer Generation
-            IF (SPNG_GEN(L).GT.0.D0) THEN              
+            IF (SPNG_GEN(L,K).GT.0.D0) THEN              
               XL    = X(L)
               XIN   = XL + C12*LE(L)*(XEGP(K)+1.D0)
               ZE_OUT = ZE_IMPOSED(XIN,TIME_RK)
               QE_OUT = QE_IMPOSED(XIN,TIME_RK,ZE_OUT)
-              ZE_SI = ZE_SI + SPNG_GEN(L)*(ZE_OUT-ZE_IN)
-              QE_SI = QE_SI + SPNG_GEN(L)*(QE_OUT-QE_IN)
+              ZE_SI = ZE_SI + SPNG_GEN(L,K)*(ZE_OUT-ZE_IN)
+              QE_SI = QE_SI + SPNG_GEN(L,K)*(QE_OUT-QE_IN)
             END IF
                   
             DO I = 1,P+1
@@ -608,19 +643,14 @@
           ELSE
             HE_IN(1) = ZE_BND(1)+DE_ED(L)
             HE_IN(2) = ZE_BND(2)+DE_ED(L+1)
-!             DO I = 1,2
-!               HE_IN(I) = MAX(HE_IN(I),ZERO)
-!             END DO
             ! If HE_IN(1) > HE_IN(2) then left side of element is higher
             IF (HE_IN(1).GT.HE_IN(2)) THEN
               HHAT(2) = MAX(H0,HE_IN(2))
               HHAT(1) = MAX(H0,HE_IN(1)-(HHAT(2)-HE_IN(2)))
-!               HHAT(1) = HE_IN(1)-(HHAT(2)-HE_IN(2))
             ! Otherwise the right side of the element is higher            
             ELSE
               HHAT(1) = MAX(H0,HE_IN(1))
               HHAT(2) = MAX(H0,HE_IN(2)-(HHAT(1)-HE_IN(1)))
-!               HHAT(2) = HE_IN(2)-(HHAT(1)-HE_IN(1))
             END IF
             HE_MAX = ZERO ! Redefine max water depth based on new values (for elem_check
             HE_MAX_LOC = 1
@@ -838,12 +868,31 @@
 !--------------------------------------------------------------------------!
       FUNCTION ZE_IMPOSED(XIN,TIN) RESULT(YOUT)
       
-      USE SIZES, ONLY : SZ
+      USE GLOBALS, ONLY : NUM_FREQ,SPNG_ZAMP,SPNG_QAMP,SPNG_K,SPNG_SIG,    &
+     &                    SPONGE_TYPE,SPNG_DIMP,G
+      USE SIZES,   ONLY : SZ
       
       IMPLICIT NONE
+      INTEGER  :: FREQ
       REAL(SZ) :: XIN,TIN,YOUT
       
-      YOUT = 0.D0
+      SELECT CASE (TRIM(SPONGE_TYPE))
+        CASE ('SINUSOIDAL')
+          YOUT = 0.D0
+          DO FREQ = 1,NUM_FREQ
+            YOUT = YOUT + SPNG_ZAMP(FREQ)*DCOS(SPNG_K(FREQ)*XIN            &
+     &                                             -SPNG_SIG(FREQ)*TIN)
+          END DO
+        CASE ('CNOIDAL')
+          YOUT = SPNG_ZAMP(1)          
+          DO FREQ = 2,NUM_FREQ
+            YOUT = YOUT + SPNG_ZAMP(FREQ)*DCOS(SPNG_K(FREQ)*(              &
+     &               XIN/SPNG_DIMP-SPNG_SIG(FREQ)*TIN*DSQRT(G/SPNG_DIMP) ))
+          END DO
+          YOUT = SPNG_DIMP*YOUT
+        CASE DEFAULT
+          YOUT = 0.D0
+      END SELECT
       
       RETURN
       END FUNCTION ZE_IMPOSED
@@ -852,15 +901,129 @@
 !--------------------------------------------------------------------------!
       FUNCTION QE_IMPOSED(XIN,TIN,ZIN) RESULT(YOUT)
       
+      USE GLOBALS, ONLY : NUM_FREQ,SPNG_QAMP,SPNG_QAMP,SPNG_K,SPNG_SIG,    &
+     &                    SPONGE_TYPE,SPNG_DIMP,G
       USE SIZES, ONLY : SZ
       
       IMPLICIT NONE
+      INTEGER  :: FREQ
       REAL(SZ) :: XIN,TIN,ZIN,YOUT
       
-      YOUT = 0.D0
+      SELECT CASE (TRIM(SPONGE_TYPE))
+        CASE ('SINUSOIDAL')
+          YOUT = 0.D0
+          DO FREQ = 1,NUM_FREQ
+            YOUT = YOUT + SPNG_QAMP(FREQ)*DCOS(SPNG_K(FREQ)*XIN            &
+     &                                             -SPNG_SIG(FREQ)*TIN)
+          END DO
+          YOUT = YOUT*(SPNG_DIMP+ZIN)
+        CASE ('CNOIDAL')
+          YOUT = SPNG_QAMP(1)*(1.D0+ZIN/SPNG_DIMP)
+          DO FREQ = 2,NUM_FREQ
+            YOUT = YOUT + SPNG_QAMP(FREQ)/DCOSH(SPNG_K(FREQ))*             &
+     &             (DSINH(SPNG_K(FREQ))+DSINH(SPNG_K(FREQ)*ZIN/SPNG_DIMP)) &
+     &             *DCOS(SPNG_K(FREQ)*(                                    &
+     &               XIN/SPNG_DIMP-SPNG_SIG(FREQ)*TIN*DSQRT(G/SPNG_DIMP) ))
+          END DO
+          YOUT = YOUT*DSQRT(G*SPNG_DIMP)*SPNG_DIMP
+        CASE DEFAULT
+          YOUT = 0.D0
+      END SELECT
       
       RETURN
       END FUNCTION QE_IMPOSED
+
 !--------------------------------------------------------------------------!
 !==========================================================================!
 !--------------------------------------------------------------------------!
+      SUBROUTINE BREAKING
+     
+      USE READ_DGINP, ONLY : BREAKMODEL
+
+      IMPLICIT NONE
+
+      SELECT CASE(BREAKMODEL)
+        CASE("duran")
+          CALL BREAKING_DURAN
+        !CASE("tonelli")
+
+        CASE DEFAULT
+          CALL BREAKING_DURAN
+      END SELECT
+
+      RETURN
+      END SUBROUTINE BREAKING
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      SUBROUTINE BREAKING_DURAN
+      
+      USE GLOBALS,    ONLY : WDFLG,NE,DISPFLG,ZE,QE,IRK,PHIB,DE_ED,LE
+      USE SIZES,      ONLY : SZ,C12
+      USE READ_DGINP, ONLY : P
+      
+      IMPLICIT NONE
+      INTEGER     :: L,I,J,K,R,S
+      REAL(SZ)    :: HMAX,TAUJ
+      REAL(SZ)    :: ZE_IN,QE_IN,QX_IN,PD_IN,ZX_IN
+      INTEGER     :: MINWIN,MAXWIN
+      REAL(SZ)    :: ZE_LT,ZE_RT
+      
+      DO L = 2,NE-1
+        IF (WDFLG(L).EQ.0) THEN
+          dispflg(L) = 0
+        ELSE
+          TAUJ = 0.D0
+          HMAX = 0.D0
+          ! LEFT NODE
+          ZE_LT = 0.D0
+          ZE_RT = 0.D0
+          QE_IN = 0.D0
+          DO I = 1,P+1
+            ZE_LT = ZE_LT + ZE(I,L-1,IRK)*PHIB(I,2)
+            ZE_RT = ZE_RT + ZE(I,L,IRK)*PHIB(I,1)
+            QE_IN = QE_IN + QE(I,L,IRK)*PHIB(I,1)
+          END DO
+          HMAX = MAX(HMAX,(DE_ED(L)+ZE_RT))
+          IF (QE_IN.GE.0.D0) THEN
+            TAUJ = TAUJ + (ZE_RT-ZE_LT)
+          END IF
+          ! RIGHT NODE
+          ZE_LT = 0.D0
+          ZE_RT = 0.D0
+          QE_IN = 0.D0
+          DO I = 1,P+1
+            ZE_LT = ZE_LT + ZE(I,L,IRK)*PHIB(I,2)
+            ZE_RT = ZE_RT + ZE(I,L+1,IRK)*PHIB(I,1)
+            QE_IN = QE_IN + QE(I,L,IRK)*PHIB(I,2)
+          END DO
+          HMAX = MAX(HMAX,(DE_ED(L+1)+ZE_LT))
+          IF (QE_IN.LE.0.D0) THEN
+            TAUJ = TAUJ + (ZE_LT-ZE_RT)
+          END IF
+          
+          TAUJ = TAUJ/((LE(L)**(P+1))**(C12)*ABS(HMAX))
+          IF (TAUJ.GT.1.D0) THEN ! Troubled Cell
+            MINWIN = MAX(L-5,1)
+            MAXWIN = MIN(L+5,NE)
+            DISPFLG(MINWIN:MAXWIN) = 0
+          END IF
+          
+        END IF
+      END DO
+      
+      DO L = 2,NE-1
+        IF (DISPFLG(L).NE.0) THEN
+          IF (DISPFLG(L-1).EQ.0.AND.DISPFLG(L+1).EQ.0) THEN
+            DISPFLG(L) = 0
+          END IF
+        END IF
+      END DO
+      
+      RETURN
+      END SUBROUTINE BREAKING_DURAN
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+
+! To do for DG_Timestep

@@ -9,27 +9,31 @@
       REAL(SZ),ALLOCATABLE    :: LE(:)
       CHARACTER(LEN=100)      :: RUNNAME
       REAL(SZ),ALLOCATABLE    :: X(:)
-!       CHARACTER(LEN=100)      :: grid_file ! In READ_DGINP
       
-      REAL(SZ)                :: G=10.d0!9.80665D0
+      REAL(SZ)                :: G=9.80665D0
+!.....Output File Variables
+      INTEGER                 :: SIMERROR
+      REAL(SZ)                :: CPU_START,CPU_FINISH
+      INTEGER                 :: FORT16
+      INTEGER	              :: FORT631,FORT641,FORT731,FORT741
+      INTEGER                 :: FORT611
+      INTEGER                 :: NUMSTNS
+      INTEGER,ALLOCATABLE     :: STNELEM(:)
 !.....DG control variables
-!       INTEGER                 :: P ! In READ_DGINP
-      
       REAL(SZ)                :: GHAT,FHAT
       REAL(SZ)                :: FH_LT,FH_RT,GH_LT,GH_RT
       REAL(SZ)                :: ZE_LT,ZE_RT,QE_LT,QE_RT,HE_LT,HE_RT
 !.....Integration and Timestepping Variables
-!       INTEGER                 :: NEGP ! In READ_DGINP
       REAL(SZ),ALLOCATABLE    :: WEGP(:),XEGP(:)
       
-      REAL(SZ)                :: DT,TIME,TIME_RK ! MAXTIME  ! In READ_DGINP
+      REAL(SZ)                :: DT,TIME,TIME_RK
       INTEGER                 :: TIMESTEPS,TSNAP
       REAL(SZ),ALLOCATABLE    :: ATVD(:,:),BTVD(:,:),TTVD(:)
-      INTEGER                 :: IRK !NRK  ! In READ_DGINP
+      INTEGER                 :: IRK
 !.....DG Basis Functions
-!       CHARACTER(LEN=100)      :: DGBASIS ! In READ_DGINP
       REAL(SZ),ALLOCATABLE    :: PHI(:,:),DPHI(:,:),PHIB(:,:),DPHIB(:,:)
       REAL(SZ),ALLOCATABLE    :: PSI(:,:),DPSI(:,:),PSIB(:,:),DPSIB(:,:)
+      REAL(SZ),ALLOCATABLE    :: PHISTN(:,:)
       
       REAL(SZ),ALLOCATABLE    :: MDG(:,:),MCG(:,:)
       INTEGER,ALLOCATABLE     :: DGPIV(:),CGPIV(:)
@@ -40,9 +44,18 @@
 !.....Solution status variables
       INTEGER,ALLOCATABLE     :: WDFLG(:)
 !.....Pressure Variables
+      INTEGER                 :: PP_DEL,PP_NEGP
+      INTEGER,ALLOCATABLE     :: DISPFLG(:)
       REAL(SZ),ALLOCATABLE    :: PD(:,:,:),PB(:,:,:)
+      REAL(SZ),ALLOCATABLE    :: PP_XEGP(:),PP_WEGP(:),PP_MU(:)
+      REAL(SZ),ALLOCATABLE    :: PP_PHI(:,:),PP_DPHI(:,:),PP_DDPHI(:,:),PP_WEI(:,:)
 !.....Nodal Attributes
-      REAL(SZ),ALLOCATABLE    :: MANN(:)
-      REAL(SZ),ALLOCATABLE    :: SPNG_GEN(:),SPNG_ABS(:)
+      REAL(SZ),ALLOCATABLE    :: MANN(:,:)
+      REAL(SZ),ALLOCATABLE    :: SPNG_GEN(:,:),SPNG_ABS(:,:)
+!.....Sponge Generation variables
+      REAL(SZ),ALLOCATABLE    :: SPNG_ZAMP(:),SPNG_QAMP(:),SPNG_K(:),SPNG_SIG(:)
+      CHARACTER(LEN=100)      :: SPONGE_TYPE
+      INTEGER                 :: NUM_FREQ
+      REAL(SZ)                :: SPNG_DIMP
 
       END MODULE GLOBALS

@@ -2,7 +2,7 @@
 !==========================================================================!
       SUBROUTINE PREP_DG
       
-      USE READ_DGINP, ONLY : READ_INPUT,IHOT,NWP
+      USE READ_DGINP, ONLY : READ_INPUT,IHOT,NWP,INONHYDRO
       USE GLOBALS,    ONLY : IRK
       
       IMPLICIT NONE
@@ -24,8 +24,6 @@
       IF (IHOT.EQ.1) THEN
         CALL READHOTSTART
       END IF
-!.....Timestep
-      CALL SETUP_TIME
 !.....Initialize the wet/dry status of the solution
       IRK = 0
       CALL WETDRY
@@ -33,6 +31,12 @@
       IF (NWP.GT.0) THEN
         CALL GET_NODAL_ATTR
       END IF
+!.....Setup pressure-Poisson solver if needed
+      IF (INONHYDRO.GT.0) THEN
+        CALL SETUP_WASUPP
+      END IF
+!.....Timestep
+      CALL SETUP_TIME
 
       RETURN
       END SUBROUTINE PREP_DG
@@ -43,7 +47,8 @@
 
       USE GLOBALS,    ONLY : PHI,DPHI,PHIB,DPHIB,PSI,DPSI,PSIB,DPSIB,      &
      &                    ATVD,BTVD,TTVD,MDG,DGPIV,MCG,CGPIV,NE,ZE,QE,     &
-     &                    ZE_RHS,QE_RHS,WDFLG,PD,PB,MANN,SPNG_GEN,SPNG_ABS
+     &                    ZE_RHS,QE_RHS,WDFLG,PD,PB,MANN,SPNG_GEN,SPNG_ABS,&
+     &                    DISPFLG
       USE READ_DGINP, ONLY : P,NRK,NEGP
       
       IMPLICIT NONE
@@ -62,9 +67,10 @@
       ALLOCATE(WDFLG(NE))
 !.....Pressure Matrices
       ALLOCATE(PD(P+1,NE,NRK+1),PB(P+1,NE,NRK+1))
+      ALLOCATE(DISPFLG(NE))
 !.....Nodal Attributes
-      ALLOCATE(MANN(NE))
-      ALLOCATE(SPNG_GEN(NE),SPNG_ABS(NE))
+      ALLOCATE(MANN(NE,NEGP))
+      ALLOCATE(SPNG_GEN(NE,NEGP),SPNG_ABS(NE,NEGP))
 
 !.....Initialize certain variables
       PHI(:,:)      = 0.D0
@@ -86,9 +92,10 @@
       WDFLG(:)      = 1
       PB(:,:,:)     = 0.D0
       PD(:,:,:)     = 0.D0
-      MANN(:)       = 0.D0
-      SPNG_GEN(:)   = 0.D0
-      SPNG_ABS(:)   = 0.D0
+      DISPFLG(:)    = 0.D0
+      MANN(:,:)       = 0.D0
+      SPNG_GEN(:,:)   = 0.D0
+      SPNG_ABS(:,:)   = 0.D0
       
       RETURN
       END SUBROUTINE VARI_ALLOCATE
@@ -101,7 +108,10 @@
      &                    ATVD,BTVD,TTVD,MDG,DGPIV,MCG,CGPIV,ZE,QE,        &
      &                    ZE_RHS,QE_RHS,WEGP,XEGP,ATVD,BTVD,TTVD,X,LE,     &
      &                    DE_ED,DE_IN,DX_IN,WDFLG,PD,PB,MANN,SPNG_GEN,     &
-     &                    SPNG_ABS
+     &                    SPNG_ABS,SPNG_ZAMP,SPNG_QAMP,SPNG_K,SPNG_SIG,    &
+     &                    PP_NEGP,PP_WEGP,PP_XEGP,PP_MU,PP_PHI,PP_DPHI,    &
+     &                    PP_DDPHI,PP_WEI,DISPFLG,PHISTN,STNELEM
+     USE READ_DGINP, ONLY : INONHYDRO
       
       IMPLICIT NONE
       
@@ -126,10 +136,23 @@
       DEALLOCATE(WDFLG)
 !.....Pressure Matrices
       DEALLOCATE(PD,PB)
+      DEALLOCATE(DISPFLG)
+      IF (INONHYDRO.GT.0) THEN
+        DEALLOCATE(PP_WEGP,PP_XEGP,PP_MU)
+        DEALLOCATE(pp_phi,pp_dphi,pp_ddphi)
+        DEALLOCATE(pp_wei)
+      END IF
 !.....Nodal Attributes
       DEALLOCATE(MANN)
       DEALLOCATE(SPNG_GEN,SPNG_ABS)
-      
+!.....Sponge variables
+      IF (ALLOCATED(SPNG_ZAMP).EQV. .TRUE.) THEN
+        DEALLOCATE(SPNG_ZAMP,SPNG_QAMP,SPNG_K,SPNG_SIG)
+      END IF
+!.....Station output
+      IF (ALLOCATED(PHISTN).EQV. .TRUE.) THEN
+        DEALLOCATE(PHISTN,STNELEM)
+      END IF
       RETURN
       END SUBROUTINE VARI_DEALLOCATE
 !--------------------------------------------------------------------------!
@@ -192,11 +215,6 @@
         END DO
       END IF
       
-      PRINT*, '----- DG Basis Functions -----'      
-      DO I = 1,P+1
-        PRINT "(F,<NEGP>F,F)", PHIB(I,1), (PHI(I,K),K=1,NEGP), PHIB(I,2)
-      END DO
-      
       RETURN
       END SUBROUTINE DG_BASIS_FUNCTIONS
 !--------------------------------------------------------------------------!
@@ -227,9 +245,9 @@
         BDG(I) = 1.D0
       END DO
       
-      PRINT "(A)", 'Local DG Mass Matrix:'
+      PRINT "(A27)", '  Local DG Mass Matrix:   '
       DO I = 1,P+1
-      PRINT "(<p+1>f8.4)", (MDG(I,J),J=1,P+1)
+      PRINT "(A,<p+1>f8.4,A)", "|   ",(MDG(I,J),J=1,P+1),"   |"
       END DO
       
       CALL DGESV(P+1,1,MDG,P+1,DGPIV,BDG,P+1,INFO)
@@ -1009,7 +1027,7 @@
           HI = ZI + DE_ED(L+K-1)
           LAMMAX = MAX(LAMMAX,ABS(QI/HI+DSQRT(G*HI)))
         END DO
-        MINLE = MIN(MINLE,LE(L))        
+        MINLE = MIN(MINLE,LE(L))
       END DO
       
       DT        = MINLE/(LAMMAX*(2*P+1))*CFL_ADJ
@@ -1038,18 +1056,23 @@
 !..........................................................................!
       SUBROUTINE GET_NODAL_ATTR
       
-      USE READ_DGINP, ONLY : NWP
-      USE GLOBALS,    ONLY : MANN,NE,SPNG_GEN,SPNG_ABS
+      USE READ_DGINP, ONLY : NWP,NEGP,P
+      USE GLOBALS,    ONLY : MANN,NE,SPNG_GEN,SPNG_ABS,NUM_FREQ,SPNG_ZAMP, &
+     &                       SPNG_QAMP,SPNG_K,SPNG_SIG,SPONGE_TYPE,        &
+     &                       SPNG_DIMP
       USE SIZES,      ONLY : SZ
       
       IMPLICIT NONE
-      LOGICAL              :: file_exists
+      LOGICAL              :: file_exists,sponge_generation
       CHARACTER(LEN=100)   :: JC1,ATTR_NAME,ATTR_UNIT
-      INTEGER              :: I,NA,NE_TST,NN_TST,NWP_TST,ELEM
+      INTEGER              :: I,L,K,FREQ
+      INTEGER              :: NA,NE_TST,NN_TST,NWP_TST,ELEM
       INTEGER              :: ATTR_SIZE,ATTR_NONDEF
       REAL(SZ),ALLOCATABLE :: ATTR_DEFAULT(:)
-      REAL(SZ)             :: VALUE
+      REAL(SZ)             :: VALUE(P+1)
       
+      
+      sponge_generation = .FALSE.
 !..... Make sure nodal attributes file exists
       INQUIRE(FILE='fort.13', EXIST = file_exists)
       IF(file_exists == .FALSE.) THEN
@@ -1086,20 +1109,33 @@
         READ(13,'(A)') ATTR_NAME
         READ(13,'(A)') ATTR_UNIT
         READ(13,*) ATTR_SIZE
+        IF (ATTR_SIZE.NE.P+1) THEN
+          PRINT("(A)"), "*** ERROR: Number of values for each attribute must ***"  
+          PRINT("(A)"), "           match ''p'' from the fort.wasupp file. "
+          PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+          STOP
+        END IF
         ALLOCATE(ATTR_DEFAULT(ATTR_SIZE))
-        READ(13,'(<ATTR_SIZE>F)') (ATTR_DEFAULT(I),I=1,ATTR_SIZE)
+        READ(13,*) (ATTR_DEFAULT(I),I=1,ATTR_SIZE)
         SELECT CASE (TRIM(ATTR_NAME))
           CASE ('mannings_n_at_sea_floor')
-            DO I = 1,NE
-              MANN(I) = ATTR_DEFAULT(1)
+            DO L = 1,NE
+              DO K = 1,NEGP
+                CALL ASSIGN_ND_ATTR(MANN(L,K),K,ATTR_DEFAULT)
+              END DO
             END DO
           CASE ('sponge_generation_layer')
-            DO I = 1,NE
-              SPNG_GEN(I) = ATTR_DEFAULT(1)
-            END DO
+            sponge_generation = .true.
+            DO L = 1,NE
+              DO K = 1,NEGP
+                CALL ASSIGN_ND_ATTR(SPNG_GEN(L,K),K,ATTR_DEFAULT)
+              END DO
+            END DO            
           CASE ('sponge_absorbing_layer')
-            DO I = 1,NE
-              SPNG_ABS(I) = ATTR_DEFAULT(1)
+            DO L = 1,NE
+              DO K = 1,NEGP
+                CALL ASSIGN_ND_ATTR(SPNG_ABS(L,K),K,ATTR_DEFAULT)
+              END DO
             END DO
           CASE DEFAULT
             PRINT("(A,A,A)"), "*** ERROR: Attribute ",TRIM(ATTR_NAME)," does not match available attributes ***"  
@@ -1115,19 +1151,25 @@
         IF (ATTR_NONDEF.GT.0) THEN
           SELECT CASE (TRIM(ATTR_NAME))
             CASE ('mannings_n_at_sea_floor')
-              DO I = 1,ATTR_NONDEF
-                READ(13,*) ELEM, VALUE
-                MANN(ELEM) = VALUE
-              END DO              
+              DO L = 1,ATTR_NONDEF
+                READ(13,*) ELEM, (VALUE(I),I=1,P+1)
+                DO K = 1,NEGP
+                  CALL ASSIGN_ND_ATTR(MANN(ELEM,K),K,VALUE)
+                END DO
+              END DO
             CASE ('sponge_generation_layer')
-              DO I = 1,ATTR_NONDEF
-                READ(13,*) ELEM, VALUE
-                SPNG_GEN(ELEM) = VALUE
+              DO L = 1,ATTR_NONDEF
+                READ(13,*) ELEM, (VALUE(I),I=1,P+1)
+                DO K = 1,NEGP
+                  CALL ASSIGN_ND_ATTR(SPNG_GEN(ELEM,K),K,VALUE)
+                END DO
               END DO
             CASE ('sponge_absorbing_layer')
-              DO I = 1,ATTR_NONDEF
-                READ(13,*) ELEM, VALUE
-                SPNG_ABS(ELEM) = VALUE
+              DO L = 1,ATTR_NONDEF
+                READ(13,*) ELEM, (VALUE(I),I=1,P+1)
+                DO K = 1,NEGP
+                  CALL ASSIGN_ND_ATTR(SPNG_ABS(ELEM,K),K,VALUE)
+                END DO
               END DO
             CASE DEFAULT
               PRINT("(A,A,A)"), "*** ERROR: Attribute ",TRIM(ATTR_NAME)," does not match available attributes ***"  
@@ -1144,8 +1186,57 @@
       PRINT "(A)", "---------------------------------------------"
       PRINT "(A)", " "
       
+      
+      
+      ! If sponge generation is used we must load all of the sponge information
+      IF (sponge_generation) THEN
+        INQUIRE(FILE='sponge.151', EXIST = file_exists)
+        IF(file_exists == .FALSE.) THEN
+          PRINT*, "sponge generation attributes file (sponge.151) does not exist"
+        CALL EXIT
+        ENDIF
+        PRINT "(A)", "---------------------------------------------"
+        PRINT "(A)", "       Read sponge generation file           "
+        PRINT "(A)", "---------------------------------------------"
+        PRINT "(A)", " "
+        OPEN(UNIT=151,FILE='sponge.151',ACTION='READ')
+          READ(151,*) SPONGE_TYPE
+          READ(151,*) NUM_FREQ, SPNG_DIMP
+          ALLOCATE(SPNG_ZAMP(NUM_FREQ),SPNG_QAMP(NUM_FREQ))          
+          ALLOCATE(SPNG_K(NUM_FREQ))
+          ALLOCATE(SPNG_SIG(NUM_FREQ))
+          DO FREQ = 1,NUM_FREQ
+            READ(151,*) SPNG_ZAMP(FREQ), SPNG_QAMP(FREQ), SPNG_K(FREQ), SPNG_SIG(FREQ)
+          END DO
+        CLOSE(151)
+      END IF
+      
       RETURN
       END SUBROUTINE GET_NODAL_ATTR
+!..........................................................................!
+!==========================================================================!
+!..........................................................................!
+      SUBROUTINE ASSIGN_ND_ATTR(ATTR,GP,VALUE)
+      
+      USE READ_DGINP, ONLY : P
+      USE SIZES,      ONLY : SZ
+      USE GLOBALS,    ONLY : PSI
+      
+      IMPLICIT NONE
+      REAL(SZ),INTENT(INOUT) :: ATTR
+      INTEGER,INTENT(IN)      :: GP
+      REAL(SZ),INTENT(IN)     :: VALUE(P+1)
+      INTEGER :: I
+      
+      
+      ATTR = 0.D0
+      DO I = 1,P+1
+        ATTR = ATTR + VALUE(I)*PSI(I,GP)
+      END DO
+      
+      
+      RETURN
+      END SUBROUTINE ASSIGN_ND_ATTR
 !..........................................................................!
 !==========================================================================!
 !==========================================================================!      

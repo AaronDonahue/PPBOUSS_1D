@@ -26,6 +26,17 @@ ifeq ($(BUILDTYPE),DG_WASUPP)
   EXE_NAME = DG_WASUPP
   MESSAGE = Compling serial program with optimization flags
 endif
+
+ifeq ($(BUILDTYPE),DG_WASUPP_DEBUG)
+  FC = ifort
+  
+  FFLAGS_VEC  =  -C -g -traceback -I$(ODIR) -c
+  FFLAGS      =  -C -g -traceback -I$(ODIR) -c 
+  FFLAGS_LINK =  -o 
+
+  EXE_NAME = DG_WASUPP_debug
+  MESSAGE = Compling serial program with debug flags
+endif
 ########################################################################
 #                  Library Links (Platform Specific)                   #
 ########################################################################
@@ -61,6 +72,10 @@ DG_WASUPP :
 	@echo "\n\n"
 	$(MAKE) BUILDTYPE=DG_WASUPP DG_WASUPP
 	
+DG_WASUPP_DEBUG : 
+	@echo "\n\n"
+	$(MAKE) BUILDTYPE=DG_WASUPP_DEBUG DG_WASUPP
+	
 else                   # this is called the second time after the build specific stuff is set
 
 #DG_WASUPP : $(ODIR) $(obj)
@@ -75,6 +90,7 @@ DG_WASUPP : $(ODIR) version  $(obj)
 	$(FC) $(FFLAGS_LINK) $(EXE_NAME) $(obj) $(METIS_LIB) $(LAPACK_LIB)
 	
 	mv $(EXE_NAME) ../work	
+	
 endif
 
 ########################################################################
@@ -85,8 +101,10 @@ $(ODIR) :
 	mkdir -p $@
 
 version:
-	@sed -i '6 c \      PRINT*, "  Branch: $(GIT_BRANCH)" ' $(VPATH)version.F90	
-	@sed -i '7 c \      PRINT*, "  SHA: $(GIT_SHA) $(GIT_MOD)" ' $(VPATH)version.F90
+	@sed -i '9 c \      PRINT*, "  Branch: $(GIT_BRANCH)" ' $(VPATH)version.F90	
+	@sed -i '10 c \      PRINT*, "  SHA: $(GIT_SHA) $(GIT_MOD)" ' $(VPATH)version.F90
+	@sed -i '17 c \      WRITE(FORT16,*) "  Branch: $(GIT_BRANCH)" ' $(VPATH)version.F90	
+	@sed -i '18 c \      WRITE(FORT16,*) "  SHA: $(GIT_SHA) $(GIT_MOD)" ' $(VPATH)version.F90
 
 ########################################################################
 #                            Clean Targets                             #

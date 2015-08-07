@@ -37,6 +37,8 @@
       CHARACTER(100), TARGET  :: output_file,out_direc
       CHARACTER(100), TARGET  :: dgbasis
       CHARACTER(100), TARGET  :: boundtype
+      CHARACTER(100), TARGET  :: breakmodel
+      CHARACTER(100), TARGET  :: station_file
       ! Integers
       INTEGER, TARGET         :: P
       INTEGER, TARGET         :: NEGP
@@ -46,12 +48,14 @@
       INTEGER, TARGET         :: ISLP
       INTEGER, TARGET         :: INONHYDRO
       INTEGER, TARGET         :: NWP
+      INTEGER, TARGET         :: IBREAK
       ! Real Numbers
       REAL(SZ), TARGET        :: MaxTime
       REAL(SZ), TARGET        :: CFL_Adj
       REAL(SZ), TARGET        :: TIMESNAP
       REAL(SZ), TARGET        :: H0
       REAL(SZ), TARGET        :: SLOPEM
+      REAL(SZ), TARGET        :: STNSNAP
 
       CONTAINS
 !..........................................................................!
@@ -68,7 +72,7 @@
       INTEGER :: eqind,exind
       LOGICAL :: found      
       CHARACTER(100) :: temp,line,empty
-      CHARACTER(15) :: test_opt
+      CHARACTER(15)  :: test_opt
       CHARACTER(100) :: test_val   
       
       LOGICAL :: file_exists
@@ -311,8 +315,12 @@
       dginp(15)%key = "islp";           dginp(15)%iptr => ISLP;           dginp(15)%required = .false.;    dginp(15)%iptr = 0
       dginp(16)%key = "islpconstant";   dginp(16)%rptr => SLOPEM;         dginp(16)%required = .false.;    dginp(16)%rptr = 0.d0
       dginp(17)%key = "inonhydro";      dginp(17)%iptr => INONHYDRO;      dginp(17)%required = .false.;    dginp(17)%iptr = 0
-      dginp(18)%key = "NWP";            dginp(18)%iptr => NWP;            dginp(18)%required = .false.;    dginp(18)%iptr = 0
-
+      dginp(18)%key = "nwp";            dginp(18)%iptr => NWP;            dginp(18)%required = .false.;    dginp(18)%iptr = 0
+      dginp(19)%key = "ibreak";         dginp(19)%iptr => IBREAK;         dginp(19)%required = .false.;    dginp(19)%iptr = 0 
+      dginp(20)%key = "breakingmodel";  dginp(20)%cptr => BREAKMODEL;     dginp(20)%required = .false.;    dginp(20)%cptr = "Tonelli" 
+      dginp(21)%key = "station_file";   dginp(21)%cptr => station_file;   dginp(21)%required = .false.;    dginp(21)%cptr = "none"
+      dginp(22)%key = "station_timestep"; dginp(22)%rptr => STNSNAP;      dginp(22)%required = .false.;    dginp(22)%rptr = "-999.d0"
+      
       
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ! End configuration
