@@ -17,6 +17,7 @@
       INTEGER                 :: FORT16
       INTEGER	              :: FORT631,FORT641,FORT731,FORT741
       INTEGER                 :: FORT611
+      INTEGER                 :: FORTRUNUP
       INTEGER                 :: NUMSTNS
       INTEGER,ALLOCATABLE     :: STNELEM(:)
 !.....DG control variables
@@ -27,7 +28,7 @@
       REAL(SZ),ALLOCATABLE    :: WEGP(:),XEGP(:)
       
       REAL(SZ)                :: DT,TIME,TIME_RK
-      INTEGER                 :: TIMESTEPS,TSNAP
+      INTEGER                 :: TIMESTEPS,TSNAP,SSNAP
       REAL(SZ),ALLOCATABLE    :: ATVD(:,:),BTVD(:,:),TTVD(:)
       INTEGER                 :: IRK
 !.....DG Basis Functions
@@ -57,5 +58,7 @@
       CHARACTER(LEN=100)      :: SPONGE_TYPE
       INTEGER                 :: NUM_FREQ
       REAL(SZ)                :: SPNG_DIMP
+!.....Misc. Variables
+      REAL(SZ)                :: MAXRUNUP
 
       END MODULE GLOBALS

@@ -62,6 +62,8 @@
 !==========================================================================!
 !..........................................................................!
       SUBROUTINE read_input()
+      
+      USE GLOBALS, ONLY : FORT16
 
       IMPLICIT NONE
       
@@ -86,6 +88,7 @@
       INQUIRE(FILE='./'//'fort.wasupp', EXIST = file_exists)
       IF(file_exists == .FALSE.) THEN
         PRINT*, "fort.wasupp file does not exist"
+        WRITE(FORT16,*) "fort.wasupp file does not exist"
         CALL EXIT
       ENDIF
       OPEN(UNIT=15,FILE='./'//'fort.wasupp')
@@ -112,8 +115,13 @@
       PRINT "(A)", "             Input Information               "
       PRINT "(A)", "---------------------------------------------"
       PRINT "(A)", " "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") "             Input Information               "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") " "
       IF (read_file.ne.1) THEN 
         PRINT*, "ERROR: fort.wasupp does not contain any information"
+        WRITE(FORT16,*) "ERROR: fort.wasupp does not contain any information"
         CALL EXIT
       ENDIF
       
@@ -167,10 +175,13 @@
               SELECT CASE (dginp(i)%vartype) 
                 CASE(1)
                   READ(test_val,*) dginp(i)%iptr
+                  WRITE(FORT16,"(A,I3,A,A,A,I8)") "              ",i,") ",dginp(i)%key," = ",dginp(i)%iptr
                 CASE(2)
                   READ(test_val,*) dginp(i)%rptr
+                  WRITE(FORT16,"(A,I3,A,A,A,E21.8)") "              ",i,") ",dginp(i)%key," = ",dginp(i)%rptr                  
                 CASE(3)
                   dginp(i)%cptr = TRIM(test_val)
+                  WRITE(FORT16,"(A,I3,A,A,A,A)") "              ",i,") ",dginp(i)%key," = ",dginp(i)%cptr                  
               END SELECT
 
               found = .true.          ! flag match
@@ -184,20 +195,24 @@
                     
           IF (found == .false. .and. eqind > 0) THEN
             ! unmatched lines with an equal sign are either incorrect or no longer supported
-            PRINT("(3A)"),"*** WARNING: ",test_opt, " is an incorrect or depreciated value ***"            
+            PRINT("(3A)"),"*** WARNING: ",test_opt, " is an incorrect or depreciated value ***"
+            WRITE(FORT16,"(3A)"),"*** WARNING: ",test_opt, " is an incorrect or depreciated value ***"            
           ELSE IF (found == .false.) THEN
             ! unmatched lines without an equal sign are ignored
-            PRINT("(A)"), "*** WARNING: non-comment line does not contain a keyword assignment***"           
+            PRINT("(A)"), "*** WARNING: non-comment line does not contain a keyword assignment***"
+            WRITE(FORT16,"(A)"), "*** WARNING: non-comment line does not contain a keyword assignment***"
           ENDIF
           
         ENDIF
       ENDDO 
       
       PRINT*, ""
+      WRITE(FORT16,*) ""
      
       CALL check_errors(opt_read)
       
       PRINT*, ""
+      WRITE(FORT16,*) ""
       CLOSE(25)
             
       END SUBROUTINE read_input
@@ -206,6 +221,8 @@
 !==========================================================================!
 !..........................................................................!
      SUBROUTINE check_errors(opt_read)
+     
+     USE GLOBALS, ONLY : FORT16
      
      IMPLICIT NONE
      
@@ -227,23 +244,29 @@
        IF (quit == 1) THEN
         
           PRINT("(A)"), "*** ERROR: There are missing required options in the fort.wasupp file ***"  
-          PRINT("(A)"), "           The following options must be specified: "      
+          PRINT("(A)"), "           The following options must be specified: "
+          WRITE(FORT16,"(A)") "*** ERROR: There are missing required options in the fort.wasupp file ***"  
+          WRITE(FORT16,"(A)") "           The following options must be specified: "
           j = 0        
           DO opt = 1,nopt
             i = dginp_ind(opt)
             IF (dginp(i)%flag == 0 .and. dginp(i)%required == .true.) THEN
               j = j+1
               PRINT "(A,I3,2A)", "              ",j,") ",dginp(i)%key
+              WRITE(FORT16,"(A,I3,2A)") "              ",j,") ",dginp(i)%key
             ENDIF
           ENDDO          
           
           PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+          WRITE(FORT16,"(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
           STOP
           
        ELSE
         
           PRINT("(A)"), "*** WARNING: There are missing optional options in the fort.wasupp file ***"
-          PRINT("(A)"), "             The following default values will be used: "    
+          PRINT("(A)"), "             The following default values will be used: "
+          WRITE(FORT16,"(A)") "*** WARNING: There are missing optional options in the fort.wasupp file ***"
+          WRITE(FORT16,"(A)") "             The following default values will be used: " 
           j = 0        
           DO opt = 1,nopt
             i = dginp_ind(opt)
@@ -253,16 +276,20 @@
               SELECT CASE (dginp(i)%vartype) 
                 CASE(1)
                   PRINT("(A,I3,A,A,A,I8)"),     "              ",j,") ",dginp(i)%key," = ",dginp(i)%iptr
+                  WRITE(FORT16,"(A,I3,A,A,A,I8)") "              ",j,") ",dginp(i)%key," = ",dginp(i)%iptr
                 CASE(2)
-                  PRINT("(A,I3,A,A,A,E21.8)"),  "              ",j,") ",dginp(i)%key," = ",dginp(i)%rptr                  
+                  PRINT("(A,I3,A,A,A,E21.8)"),  "              ",j,") ",dginp(i)%key," = ",dginp(i)%rptr
+                  WRITE(FORT16,"(A,I3,A,A,A,E21.8)") "              ",j,") ",dginp(i)%key," = ",dginp(i)%rptr                  
                 CASE(3)
-                  PRINT("(A,I3,A,A,A,A)"),      "              ",j,") ",dginp(i)%key," = ",dginp(i)%cptr                  
+                  PRINT("(A,I3,A,A,A,A)"),      "              ",j,") ",dginp(i)%key," = ",dginp(i)%cptr
+                  WRITE(FORT16,"(A,I3,A,A,A,A)") "              ",j,") ",dginp(i)%key," = ",dginp(i)%cptr                  
               END SELECT
               
             ENDIF
           ENDDO 
           
           PRINT("(A)"), '!!!!!! EXECUTION WILL CONTINUE !!!!!!!!'
+          WRITE(FORT16,"(A)") '!!!!!! EXECUTION WILL CONTINUE !!!!!!!!'
           
        ENDIF       
                   
@@ -276,6 +303,8 @@
 !==========================================================================!
 !..........................................................................!
       SUBROUTINE dginp_setup()
+      
+      USE GLOBALS, ONLY : FORT16
       
       IMPLICIT NONE
       
@@ -358,6 +387,8 @@
       IF (nopt /= ncheck) THEN
         PRINT("(A)"), "*** ERROR: fort.wasupp option pointer association error ***"
         PRINT("(A)"), "           check keyword configuration in dginp_setup subroutine"
+        WRITE(FORT16,"(A)") "*** ERROR: fort.wasupp option pointer association error ***"
+        WRITE(FORT16,"(A)") "           check keyword configuration in dginp_setup subroutine"
         STOP
       ENDIF
       

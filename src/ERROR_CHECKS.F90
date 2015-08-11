@@ -3,7 +3,7 @@
 !--------------------------------------------------------------------------!
       SUBROUTINE STAB_CHK
       
-      USE GLOBALS,    ONLY : NE,ZE,QE,TIME,SIMERROR
+      USE GLOBALS,    ONLY : NE,ZE,QE,TIME,SIMERROR,FORT16
       USE READ_DGINP, ONLY : P
       
       IMPLICIT NONE
@@ -33,7 +33,10 @@
       IF (SIMERROR.NE.0) THEN
         WRITE(*,"(A,F16.8,A)"), "*** ERROR: Solution has gone unstable at t = ", TIME, " ***"  
         WRITE(*,"(A,I8,A)"), "***        Unstable at element # ",ERRLOC(1),"             ***"
-        PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"       
+        PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+        WRITE(FORT16,"(A,F16.8,A)") "*** ERROR: Solution has gone unstable at t = ", TIME, " ***"  
+        WRITE(FORT16,"(A,I8,A)") "***        Unstable at element # ",ERRLOC(1),"             ***"
+        WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
       END IF 
                   
       END SUBROUTINE STAB_CHK

@@ -8,6 +8,9 @@
       INTEGER :: L,M
       INTEGER :: SNAP
       
+!.....Open fort.16, simulation output file
+      FORT16 = 16
+      OPEN(UNIT=FORT16,FILE=TRIM(out_direc)//'fort.16',STATUS='REPLACE')      
 !.....Prep the DG run
       CALL PREP_DG
 !.....Deal with output files
@@ -25,6 +28,9 @@
         IF (MOD(SNAP,TSNAP).EQ.0) THEN
           CALL WRITE_OUTPUT_GLOBAL
         END IF
+        IF (MOD(SNAP,SSNAP).EQ.0) THEN
+          CALL WRITE_OUTPUT_STATION
+        END IF
         ! Stability Check
         CALL STAB_CHK
         IF (SIMERROR.NE.0) THEN
@@ -34,8 +40,11 @@
 
 9999  CONTINUE
 !.....Write final timestep in solution
-      IF (MOD(TIMESTEPS,TSNAP).NE.0) THEN
+      IF (MOD(SNAP,TSNAP).NE.0) THEN
         CALL WRITE_OUTPUT_GLOBAL
+      END IF
+      IF (MOD(SNAP,SSNAP).NE.0) THEN
+        CALL WRITE_OUTPUT_STATION
       END IF
 
 !.....Deallocate all memory usage
@@ -43,5 +52,9 @@
 
 !.....Close all output files, finish run
       CALL FINISH_OUTPUT
+      WRITE(16,*) " "
+      WRITE(16,*) "Simulation finished..."
+      WRITE(16,*) "Computation took ",CPU_FINISH-CPU_START," sec."
+      CLOSE(FORT16)
       
       END PROGRAM MAIN

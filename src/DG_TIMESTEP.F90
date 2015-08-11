@@ -945,8 +945,10 @@
       SELECT CASE(BREAKMODEL)
         CASE("duran")
           CALL BREAKING_DURAN
-        !CASE("tonelli")
-
+        CASE("tonelli")
+          CALL BREAKING_TONELLI
+        CASE("duran_adj")
+          CALL BREAKING_DURAN_ADJ
         CASE DEFAULT
           CALL BREAKING_DURAN
       END SELECT
@@ -963,9 +965,9 @@
       USE READ_DGINP, ONLY : P
       
       IMPLICIT NONE
-      INTEGER     :: L,I,J,K,R,S
+      INTEGER     :: L,I
       REAL(SZ)    :: HMAX,TAUJ
-      REAL(SZ)    :: ZE_IN,QE_IN,QX_IN,PD_IN,ZX_IN
+      REAL(SZ)    :: QE_IN
       INTEGER     :: MINWIN,MAXWIN
       REAL(SZ)    :: ZE_LT,ZE_RT
       
@@ -1022,6 +1024,144 @@
       
       RETURN
       END SUBROUTINE BREAKING_DURAN
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      SUBROUTINE BREAKING_DURAN_ADJ
+      
+      USE GLOBALS,    ONLY : WDFLG,NE,DISPFLG,ZE,QE,IRK,PHIB,LE
+      USE SIZES,      ONLY : SZ,C12
+      USE READ_DGINP, ONLY : P
+      
+      IMPLICIT NONE
+      INTEGER     :: L,I
+      REAL(SZ)    :: ALP,ALPMAX,QIN
+      INTEGER     :: MINWIN,MAXWIN
+      REAL(SZ)    :: ZE_LT,ZE_RT,QE_LT,QE_RT
+      
+      ALPMAX = -0.577350269189626d0 ! 30 degree slope
+      DO L = 1,NE
+        IF (WDFLG(L).EQ.0) THEN
+          dispflg(L) = 0
+        ELSE
+          ! LEFT NODE
+          ZE_LT = 0.D0
+          QE_LT = 0.D0
+          DO I = 1,P+1
+            ZE_LT = ZE_LT + ZE(I,L,IRK)*PHIB(I,1)
+            QE_LT = QE_lt + QE(I,L,IRK)*PHIB(I,1)
+          END DO
+
+          ! RIGHT NODE
+          ZE_RT = 0.D0
+          QE_RT = 0.D0
+          DO I = 1,P+1
+            ZE_RT = ZE_RT + ZE(I,L,IRK)*PHIB(I,2)
+            QE_RT = QE_RT + QE(I,L,IRK)*PHIB(I,2)
+          END DO
+                    
+          IF (QE_LT*QE_RT.GE.0.D0) THEN
+            QIN = QE_LT/ABS(QE_LT)
+          ELSE
+            QIN = 0.D0
+          END IF 
+          
+          ALP = (ZE_RT-ZE_LT)/LE(L) * QIN
+
+          IF (ALP.LT.ALPMAX) THEN ! Troubled Cell
+            MINWIN = MAX(L-5,1)
+            MAXWIN = MIN(L+5,NE)
+            DISPFLG(MINWIN:MAXWIN) = 0
+          END IF
+          
+        END IF
+      END DO
+      
+      DO L = 2,NE-1
+        IF (DISPFLG(L).NE.0) THEN
+          IF (DISPFLG(L-1).EQ.0.AND.DISPFLG(L+1).EQ.0) THEN
+            DISPFLG(L) = 0
+          END IF
+        END IF
+      END DO
+      
+      RETURN
+      END SUBROUTINE BREAKING_DURAN_ADJ
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      SUBROUTINE BREAKING_TONELLI
+      
+      USE GLOBALS,    ONLY : WDFLG,NE,DISPFLG,ZE,QE,IRK,PHIB,LE,DE_IN,     &
+     &                       DE_ED,PHI
+      USE SIZES,      ONLY : SZ,C12
+      USE READ_DGINP, ONLY : P,NEGP
+      
+      IMPLICIT NONE
+      INTEGER     :: L,I,K,BRKFLG
+      REAL(SZ)    :: HBRK
+      INTEGER     :: MINWIN,MAXWIN
+      REAL(SZ)    :: ZE_IN
+
+      DISPFLG(:) = 1
+      HBRK = 0.8D0
+      DO L = 1,NE        
+        IF (WDFLG(L).EQ.0) THEN
+          DISPFLG(L) = 0
+        ELSE
+          BRKFLG = 0
+          ! LEFT NODE
+          ZE_IN = 0.D0
+          DO I = 1,P+1
+            ZE_IN = ZE_IN + ZE(I,L,IRK)*PHIB(I,1)
+          END DO
+          IF (ZE_IN.GT.(HBRK*DE_ED(L))) THEN
+            BRKFLG = 1
+            GOTO 5111
+          END IF
+
+          ! INTERNAL NODES
+          DO K = 1,NEGP
+            ZE_IN = 0.D0
+            DO I = 1,P+1
+              ZE_IN = ZE_IN + ZE(I,L,IRK)*PHI(I,K)
+            END DO
+            IF (ZE_IN.GT.(HBRK*DE_IN(L,K))) THEN
+              BRKFLG = 1
+              GOTO 5111
+            END IF
+          END DO          
+          
+          ! RIGHT NODE
+          ZE_IN = 0.D0
+          DO I = 1,P+1
+            ZE_IN = ZE_IN + ZE(I,L,IRK)*PHIB(I,2)
+          END DO
+          IF (ZE_IN.GT.(HBRK*DE_ED(L+1))) THEN
+            BRKFLG = 1
+            GOTO 5111
+          END IF
+          
+5111      CONTINUE
+          IF (BRKFLG.EQ.1) THEN ! Troubled Cell
+            MINWIN = MAX(L-5,1)
+            MAXWIN = MIN(L+5,NE)
+            DISPFLG(MINWIN:MAXWIN) = 0
+          END IF
+          
+        END IF
+      END DO
+      
+      DO L = 2,NE-1
+        IF (DISPFLG(L).NE.0) THEN
+          IF (DISPFLG(L-1).EQ.0.AND.DISPFLG(L+1).EQ.0) THEN
+            DISPFLG(L) = 0
+          END IF
+        END IF
+      END DO
+      
+      RETURN
+      END SUBROUTINE BREAKING_TONELLI
 !--------------------------------------------------------------------------!
 !==========================================================================!
 !--------------------------------------------------------------------------!

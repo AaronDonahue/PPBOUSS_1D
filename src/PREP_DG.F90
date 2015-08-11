@@ -222,7 +222,8 @@
 !--------------------------------------------------------------------------!
       SUBROUTINE MASS_MATRIX
       
-      USE GLOBALS,    ONLY : NE,MDG,WEGP,PHI,DGPIV,MCG,CGPIV,PSI,PHI,LE
+      USE GLOBALS,    ONLY : NE,MDG,WEGP,PHI,DGPIV,MCG,CGPIV,PSI,PHI,LE,   &
+     &                       FORT16
       USE SIZES,      ONLY : SZ,C12
       USE READ_DGINP, ONLY : P,NEGP
       
@@ -246,8 +247,10 @@
       END DO
       
       PRINT "(A27)", '  Local DG Mass Matrix:   '
+      WRITE(16,"(A27)") '  Local DG Mass Matrix:   '
       DO I = 1,P+1
       PRINT "(A,<p+1>f8.4,A)", "|   ",(MDG(I,J),J=1,P+1),"   |"
+      WRITE(FORT16,"(A,<p+1>f8.4,A)") "|   ",(MDG(I,J),J=1,P+1),"   |"
       END DO
       
       CALL DGESV(P+1,1,MDG,P+1,DGPIV,BDG,P+1,INFO)
@@ -776,7 +779,8 @@
       SUBROUTINE READGRID
       
       USE READ_DGINP, ONLY : GRID_FILE,NEGP
-      USE GLOBALS,    ONLY : RUNNAME,X,DE_ED,LE,NE,NN,XEGP,DE_IN,DX_IN
+      USE GLOBALS,    ONLY : RUNNAME,X,DE_ED,LE,NE,NN,XEGP,DE_IN,DX_IN,    &
+     &                       FORT16
       USE SIZES,      ONLY : SZ,C12
       
       IMPLICIT NONE
@@ -790,12 +794,17 @@
       INQUIRE(FILE='./'//ADJUSTL(TRIM(grid_file)), EXIST = file_exists)
       IF(file_exists == .FALSE.) THEN
         PRINT*, "grid file file does not exist"
+        WRITE(FORT16,*) "grid file file does not exist"
         CALL EXIT
       ENDIF
       PRINT "(A)", "---------------------------------------------"
       PRINT "(A)", "              Read grid file                 "
       PRINT "(A)", "---------------------------------------------"
       PRINT "(A)", " "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") "              Read grid file                 "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") " "
       OPEN(UNIT=14,FILE='./'//ADJUSTL(TRIM(grid_file)),ACTION='READ')
       READ(14,"(A100)") RUNNAME
       READ(14,*)  NE,NN
@@ -831,6 +840,10 @@
       PRINT "(A)", "        Finished reading grid file           "
       PRINT "(A)", "---------------------------------------------"
       PRINT "(A)", " "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") "        Finished reading grid file           "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") " "
       
       
       RETURN
@@ -841,7 +854,7 @@
       SUBROUTINE READHOTSTART
       
       USE READ_DGINP, ONLY : P,HOTSTART_FILE,DGBASIS
-      USE GLOBALS,    ONLY : NE,ZE,QE
+      USE GLOBALS,    ONLY : NE,ZE,QE,FORT16
       USE SIZES,      ONLY : SZ
       
       IMPLICIT NONE
@@ -864,12 +877,17 @@
       INQUIRE(FILE='./'//ADJUSTL(TRIM(hotstart_file)), EXIST = file_exists)
       IF(file_exists == .FALSE.) THEN
         PRINT*, "hotstart file does not exist"
+        WRITE(FORT16,*) "hotstart file does not exist"
         CALL EXIT
       ENDIF
       PRINT "(A)", "---------------------------------------------"
       PRINT "(A)", "           Read hotstart file                "
       PRINT "(A)", "---------------------------------------------"
       PRINT "(A)", " "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") "           Read hotstart file                "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") " "
       OPEN(UNIT=63,FILE='./'//ADJUSTL(TRIM(hotstart_file)),ACTION='READ')
       
 !.....Read in number of nodes in hotstart file and local P value
@@ -886,6 +904,9 @@
             PRINT("(A)"), "*** ERROR: The hotstart file does not contain enough ***"  
             PRINT("(A)"), "           information for the simulation order (P).    "  
             PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+            WRITE(FORT16,"(A)") "*** ERROR: The hotstart file does not contain enough ***"  
+            WRITE(FORT16,"(A)") "           information for the simulation order (P).    "  
+            WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
             CALL EXIT
           ELSE
             ! Read in hotstart information
@@ -895,6 +916,9 @@
                 PRINT("(A)"), "*** ERROR: Number of nodes in hotstart file does    "  
                 PRINT("(A)"), "           does not match value on line 1 of file.  "
                 PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+                WRITE(FORT16,"(A)") "*** ERROR: Number of nodes in hotstart file does    "  
+                WRITE(FORT16,"(A)") "           does not match value on line 1 of file.  "
+                WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
                 CALL EXIT
               END IF
             END DO
@@ -941,6 +965,9 @@
             PRINT("(A)"), "*** ERROR: The hotstart file does not contain enough ***"  
             PRINT("(A)"), "           information for the simulation order (P).    "  
             PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+            WRITE(FORT16,"(A)") "*** ERROR: The hotstart file does not contain enough ***"  
+            WRITE(FORT16,"(A)") "           information for the simulation order (P).    "  
+            WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
             CALL EXIT
           ELSE
             ! Read in hotstart information
@@ -950,6 +977,9 @@
                 PRINT("(A)"), "*** ERROR: Number of nodes in hotstart file does    "  
                 PRINT("(A)"), "           does not match value on line 1 of file.  "
                 PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+                WRITE(FORT16,"(A)") "*** ERROR: Number of nodes in hotstart file does    "  
+                WRITE(FORT16,"(A)") "           does not match value on line 1 of file.  "
+                WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
                 CALL EXIT
               END IF
             END DO
@@ -984,6 +1014,10 @@
           PRINT("(A)"), "           valid type, i.e. NODAL or MODAL.             "  
           PRINT("(A)"), "           Check line 2 for spelling and uppercase      "  
           PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+          WRITE(FORT16,"(A)") "*** ERROR: The hotstart file does not have a ***"  
+          WRITE(FORT16,"(A)") "           valid type, i.e. NODAL or MODAL.             "  
+          WRITE(FORT16,"(A)") "           Check line 2 for spelling and uppercase      "  
+          WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
           CALL EXIT
       END SELECT
         
@@ -995,6 +1029,10 @@
       PRINT "(A)", "     Finished reading hotstart file          "
       PRINT "(A)", "---------------------------------------------"
       PRINT "(A)", " "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") "     Finished reading hotstart file          "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") " "
       
       RETURN
       END SUBROUTINE READHOTSTART
@@ -1003,8 +1041,10 @@
 !..........................................................................!
       SUBROUTINE SETUP_TIME
       
-      USE READ_DGINP, ONLY : MAXTIME,CFL_ADJ,P,TIMESNAP
-      USE GLOBALS,    ONLY : TIMESTEPS,DT,LE,NE,G,DE_ED,TSNAP,ZE,QE,PHIB
+      USE READ_DGINP, ONLY : MAXTIME,CFL_ADJ,P,TIMESNAP,station_file,      &
+     &                       STNSNAP
+      USE GLOBALS,    ONLY : TIMESTEPS,DT,LE,NE,G,DE_ED,TSNAP,ZE,QE,PHIB,  &
+     &                       FORT16,SSNAP
       USE SIZES,      ONLY : SZ
       
       IMPLICIT NONE
@@ -1044,12 +1084,34 @@
         DT    = TIMESNAP/DBLE(TSNAP)
         TIMESTEPS = CEILING(MAXTIME/DT)
       END IF
+      
+
             
       PRINT "(A)", " "
       PRINT "(A14,F16.8,A14)", "         DT = ",DT,"            "      
-      PRINT "(A14,I,A14)", "Total Steps = ",TIMESTEPS,"            "
-      PRINT "(A)", " "
+      PRINT "(A14,I,A14)", "Total Steps = ",TIMESTEPS,"            "      
+      WRITE(FORT16,"(A)") " "
+      WRITE(FORT16,"(A14,F16.8,A14)") "         DT = ",DT,"            "      
+      WRITE(FORT16,"(A14,I,A14)") "Total Steps = ",TIMESTEPS,"            "
       
+      
+      !.....If station output is recorded determine station step
+      IF (TRIM(station_file).NE."none") THEN
+        IF (STNSNAP.LE.DT) THEN
+          SSNAP    = 1
+          STNSNAP  = DT
+        ELSE
+          SSNAP    = CEILING(STNSNAP/DT)
+          STNSNAP  = SSNAP*DT
+        END IF
+        PRINT "(A29,F16.8,A4)", "Station output records every ",STNSNAP,"(s)"
+        WRITE(FORT16,"(A29,F16.8,A4)") "Station output records every ",STNSNAP,"(s)"
+      END IF
+      
+      PRINT "(A)", " "
+      WRITE(FORT16,"(A)") " "
+      
+      RETURN
       END SUBROUTINE SETUP_TIME
 !..........................................................................!
 !==========================================================================!
@@ -1059,7 +1121,7 @@
       USE READ_DGINP, ONLY : NWP,NEGP,P
       USE GLOBALS,    ONLY : MANN,NE,SPNG_GEN,SPNG_ABS,NUM_FREQ,SPNG_ZAMP, &
      &                       SPNG_QAMP,SPNG_K,SPNG_SIG,SPONGE_TYPE,        &
-     &                       SPNG_DIMP
+     &                       SPNG_DIMP,FORT16
       USE SIZES,      ONLY : SZ
       
       IMPLICIT NONE
@@ -1077,6 +1139,7 @@
       INQUIRE(FILE='fort.13', EXIST = file_exists)
       IF(file_exists == .FALSE.) THEN
         PRINT*, "nodal attributes file (fort.13) does not exist"
+        WRITE(FORT16,*) "nodal attributes file (fort.13) does not exist"
         CALL EXIT
       ENDIF
 !..... If so open it and read in nodal attributes
@@ -1084,6 +1147,10 @@
       PRINT "(A)", "       Read nodal attributes file            "
       PRINT "(A)", "---------------------------------------------"
       PRINT "(A)", " "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") "       Read nodal attributes file            "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") " "
       OPEN(UNIT=13,FILE='fort.13',ACTION='READ')
       
 !.....Begin reading in nodal attributes
@@ -1095,6 +1162,9 @@
         PRINT("(A)"), "*** ERROR: Number of elements in attributes file does not ***"  
         PRINT("(A)"), "           match the gridfile. "
         PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+        WRITE(FORT16,"(A)") "*** ERROR: Number of elements in attributes file does not ***"  
+        WRITE(FORT16,"(A)") "           match the gridfile. "
+        WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
         STOP
       END IF
       ! Check to make sure the number of attributes matches NWP
@@ -1102,6 +1172,9 @@
         PRINT("(A)"), "*** ERROR: Number of attributes in file does not ***"  
         PRINT("(A)"), "           match the fort.wasupp file. "
         PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+        WRITE(FORT16,"(A)") "*** ERROR: Number of attributes in file does not ***"  
+        WRITE(FORT16,"(A)") "           match the fort.wasupp file. "
+        WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
         STOP
       END IF
       ! Read in default values
@@ -1113,6 +1186,9 @@
           PRINT("(A)"), "*** ERROR: Number of values for each attribute must ***"  
           PRINT("(A)"), "           match ''p'' from the fort.wasupp file. "
           PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+          WRITE(FORT16,"(A)") "*** ERROR: Number of values for each attribute must ***"  
+          WRITE(FORT16,"(A)") "           match ''p'' from the fort.wasupp file. "
+          WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
           STOP
         END IF
         ALLOCATE(ATTR_DEFAULT(ATTR_SIZE))
@@ -1140,17 +1216,21 @@
           CASE DEFAULT
             PRINT("(A,A,A)"), "*** ERROR: Attribute ",TRIM(ATTR_NAME)," does not match available attributes ***"  
             PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+            WRITE(FORT16,"(A,A,A)") "*** ERROR: Attribute ",TRIM(ATTR_NAME)," does not match available attributes ***"  
+            WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
             STOP
         END SELECT
         DEALLOCATE(ATTR_DEFAULT)
       END DO
       ! Adjust nondefault values
+      WRITE(FORT16,"(A)") "Number of nondefault Nodal Attributes :"
       DO NA = 1,NWP
         READ(13,'(A)') ATTR_NAME
         READ(13,*) ATTR_NONDEF
         IF (ATTR_NONDEF.GT.0) THEN
           SELECT CASE (TRIM(ATTR_NAME))
             CASE ('mannings_n_at_sea_floor')
+              WRITE(FORT16,"(A,I)") "mannings_n_at_sea_floor :", ATTR_NONDEF
               DO L = 1,ATTR_NONDEF
                 READ(13,*) ELEM, (VALUE(I),I=1,P+1)
                 DO K = 1,NEGP
@@ -1158,6 +1238,7 @@
                 END DO
               END DO
             CASE ('sponge_generation_layer')
+              WRITE(FORT16,"(A,I)") "sponge_generation_layer :", ATTR_NONDEF
               DO L = 1,ATTR_NONDEF
                 READ(13,*) ELEM, (VALUE(I),I=1,P+1)
                 DO K = 1,NEGP
@@ -1165,6 +1246,7 @@
                 END DO
               END DO
             CASE ('sponge_absorbing_layer')
+              WRITE(FORT16,"(A,I)") "sponge_absorbing_layer :", ATTR_NONDEF
               DO L = 1,ATTR_NONDEF
                 READ(13,*) ELEM, (VALUE(I),I=1,P+1)
                 DO K = 1,NEGP
@@ -1174,10 +1256,13 @@
             CASE DEFAULT
               PRINT("(A,A,A)"), "*** ERROR: Attribute ",TRIM(ATTR_NAME)," does not match available attributes ***"  
               PRINT("(A)"), "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
+              WRITE(FORT16,"(A,A,A)") "*** ERROR: Attribute ",TRIM(ATTR_NAME)," does not match available attributes ***"  
+              WRITE(FORT16,"(A)") "!!!!!! EXECUTION WILL NOW BE TERMINATED !!!!!!"
               STOP
           END SELECT          
         END IF
         PRINT '(A,A)','Finished loading ',ATTR_NAME
+        WRITE(FORT16,'(A,A)')'Finished loading ',ATTR_NAME
       END DO
       
       CLOSE(13)
@@ -1185,6 +1270,10 @@
       PRINT "(A)", "   Finished reading nodal attributes file    "
       PRINT "(A)", "---------------------------------------------"
       PRINT "(A)", " "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") "   Finished reading nodal attributes file    "
+      WRITE(FORT16,"(A)") "---------------------------------------------"
+      WRITE(FORT16,"(A)") " "
       
       
       
@@ -1193,12 +1282,17 @@
         INQUIRE(FILE='sponge.151', EXIST = file_exists)
         IF(file_exists == .FALSE.) THEN
           PRINT*, "sponge generation attributes file (sponge.151) does not exist"
+          WRITE(FORT16,*) "sponge generation attributes file (sponge.151) does not exist"
         CALL EXIT
         ENDIF
         PRINT "(A)", "---------------------------------------------"
         PRINT "(A)", "       Read sponge generation file           "
         PRINT "(A)", "---------------------------------------------"
         PRINT "(A)", " "
+        WRITE(FORT16,"(A)") "---------------------------------------------"
+        WRITE(FORT16,"(A)") "       Read sponge generation file           "
+        WRITE(FORT16,"(A)") "---------------------------------------------"
+        WRITE(FORT16,"(A)") " "
         OPEN(UNIT=151,FILE='sponge.151',ACTION='READ')
           READ(151,*) SPONGE_TYPE
           READ(151,*) NUM_FREQ, SPNG_DIMP
