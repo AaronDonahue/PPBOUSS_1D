@@ -1,33 +1,163 @@
-%% Script to construct hotstart file
-hotrun = 'test';
-hottype = 'NODAL';
-hotfile = 'Solitary_nonbreak.67';
-% hotfile = 'Solitary_break.67';
-% hotfile = 'Hsiao_case1.67';
-% hotfile = 'Hsiao_case2.67';
-% hotfile = 'Hsiao_case3.67';
-% hotfile = 'carrier.67';
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%            Script to construct hotstart file					%
+%										%
+% This Matlab code has been designed to quickly construct a hotstart file	%
+% (i.e. an intial condition file) for use by the DG_WASUPP pressure-Poisson	%
+% model.									%
+%										%
+% The following is a list of the component that must be changed for each new	%
+% hotstart file.								%
+%										%
+% hotrun : Name for hotstart run, will be written on the first line of the file %
+% hottype : Type of hotstart file (NODAL or MODAL).  Currently only "Nodal" is	%
+%           compatible so this shouldn't be changed.				%
+% hotfile : Name of actual file, usually *****.67				%
+% gridfile : Gridfile to be used for hotstart.					%
+% h0 : If initial dry states are anticipated, this is the minimum water level.	%
+% p : The order of the hotstart file, p>=1.  p=1 is standard for linear.	%
+% zfun : A function of x that represents the free-surface displacement		%
+% ufun : A function of x that represents the velocity				%
+%										%
+% There are a few pre-loaded hotstart setups which can be uncommented.		%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%% Hotstart variables
+% hotrun = 'test';
+% hottype = 'NODAL';
 % hotfile = 'fort.67';
-% hotfile = 'dambreak.67';
-% hotfile = 'riemann.67';
-% hotfile = 'parabolic.67';
-
-h0 = 0.00001;
-p = 1;
-
-if p == 0
-    hottype = 'MODAL';
-end
-%% Read grid file
+% h0 = 0.00001;
+% p = 1;
 % gridfile = 'fort.14';
-gridfile = 'Solitary.14';
-% gridfile = 'Hsiao_case1.14';
-% gridfile = 'Hsiao_case2.14';
-% gridfile = 'Hsiao_case3.14';
-% gridfile = 'carrier.14';
-% gridfile = 'dambreak.14';
-% gridfile = 'riemann.14';
-% gridfile = 'parabolic.14';
+
+% -- Solitary NonBreaking
+%  hotrun = 'Solitary_Wave_NonBreaking';
+%  hottype = 'NODAL';
+%  hotfile = 'Solitary_nonbreak.67';
+%  h0 = 0.00001;
+%  p = 1;
+%  gridfile = 'Solitary.14';
+%  a = 0.0185;
+%  hb = 0.4;
+%  x0 = -15;
+%  x1 = 1000;
+%  c = sqrt(9.81*(hb+a));
+%  kap = sqrt(3*a)/(2*hb*sqrt(hb+a));
+%  zfun = @(x)a*sech(kap*(x-x0)).^2.*(x<=x1) - 10*(x>x1);
+%  ufun = @(x)c*(1-hb./(zfun(x)+hb));
+
+% -- Solitary Breaking
+%  hotrun = 'Solitary_Wave_Breaking';
+%  hottype = 'NODAL';
+%  hotfile = 'Solitary_break.67';
+%  h0 = 0.00001;
+%  p = 1;
+%  gridfile = 'Solitary.14';
+%  a = 0.3;
+%  hb = 0.4;
+%  x0 = -15;
+%  x1 = 1000;
+%  c = sqrt(9.81*(hb+a));
+%  kap = sqrt(3*a)/(2*hb*sqrt(hb+a));
+%  zfun = @(x)a*sech(kap*(x-x0)).^2.*(x<=x1) - 10*(x>x1);
+%  ufun = @(x)c*(1-hb./(zfun(x)+hb));
+
+% -- Hsiao Case 1
+ hotrun = 'Hsiao_Case_1';
+ hottype = 'NODAL';
+ hotfile = 'Hsiao_case1.67';
+ h0 = 0.00001;
+ p = 1;
+ gridfile = 'Hsiao_case1.14';
+ a = 0.07;
+ hb = 0.2;
+ x0 = 3;
+ x1 = 13.9;
+ c = sqrt(9.81*(hb+a));
+ kap = sqrt(3*a)/(2*hb*sqrt(hb+a));
+ zfun = @(x)a*sech(kap*(x-x0)).^2.*(x<=x1) - 10*(x>x1);
+ ufun = @(x)c*(1-hb./(zfun(x)+hb));
+
+% -- Hsiao Case 2
+%  hotrun = 'Hsiao_Case_2';
+%  hottype = 'NODAL';
+%  hotfile = 'Hsiao_case2.67';
+%  h0 = 0.00001;
+%  p = 1;
+%  gridfile = 'Hsiao_case2.14';
+%  a = 0.0638;
+%  hb = 0.22;
+%  x0 = 3;
+%  x1 = 13.9;
+%  c = sqrt(9.81*(hb+a));
+%  kap = sqrt(3*a)/(2*hb*sqrt(hb+a));
+%  zfun = @(x)a*sech(kap*(x-x0)).^2.*(x<=x1) - 10*(x>x1);
+%  ufun = @(x)c*(1-hb./(zfun(x)+hb));
+
+% -- Hsiao Case 3
+%  hotrun = 'Hsiao_Case_3';
+%  hottype = 'NODAL';
+%  hotfile = 'Hsiao_case3.67';
+%  h0 = 0.00001;
+%  p = 1;
+%  gridfile = 'Hsiao_case3.14';
+%  a = 0.0589;
+%  hb = 0.18+0.076;
+%  x0 = 3;
+%  x1 = 13.9;
+%  c = sqrt(9.81*(hb+a));
+%  kap = sqrt(3*a)/(2*hb*sqrt(hb+a));
+%  zfun = @(x)a*sech(kap*(x-x0)).^2.*(x<=x1) - 10*(x>x1);
+%  ufun = @(x)c*(1-hb./(zfun(x)+hb));
+
+% -- Carrier and Greenspan
+%  hotrun = 'Carrier_Greenspan';
+%  hottype = 'NODAL';
+%  hotfile = 'carrier.67';
+%  h0 = 0.00001;
+%  p = 1;
+%  gridfile = 'carrier.14';
+%  a = 0.0185;
+%  hb = 1;
+%  x0 = -30;
+%  x1 = 9999;
+%  c = sqrt(9.81*(hb+a));
+%  kap = sqrt(3*a)/(2*hb*sqrt(hb+a));
+%  zfun = @(x)a*sech(kap*(x-x0)).^2.*(x<=x1) - 10*(x>x1);
+%  ufun = @(x)c*(1-hb./(zfun(x)+hb));
+
+% -- Dambreak
+%  hotrun = 'Dambreak';
+%  hottype = 'NODAL';
+%  hotfile = 'dambreak.67';
+%  h0 = 0.00001;
+%  p = 1;
+%  gridfile = 'dambreak.14';
+%  zfun = @(x)10*(x<0)+0*(x>=0);
+%  ufun = @(x)0*x;
+
+% -- Riemann
+%  hotrun = 'Riemann';
+%  hottype = 'NODAL';
+%  hotfile = 'riemann.67';
+%  h0 = 0.00001;
+%  p = 1;
+%  gridfile = 'riemann.14';
+%  zfun = @(x)5*(x<=0)+10*(x>0);
+%  ufun = @(x)40*(x>0);
+
+% -- Parabolic Bowl
+%  hotrun = 'Parabolic';
+%  hottype = 'NODAL';
+%  hotfile = 'parabolic.67';
+%  h0 = 0.00001;
+%  p = 1;
+%  gridfile = 'parabolic.14';
+%  xlen = 8000;
+%  zfun = @(x)0.001*cos(2*pi/xlen*x);
+%  ufun = @(x)0*x;
+
+%% Read grid file
 fid = fopen(gridfile);
 tmp = textscan(fid,'%f %f',1,'headerlines',1);
 nn = tmp{2};
@@ -57,51 +187,15 @@ if strcmp(hottype,'NODAL')
 end
 
 %% Hotstart z and q
-% xlen = x(end)-x(1);
-% zfun = @(x)0.001*cos(2*pi/xlen*x);
-% zfun = @(x)0*x-d+10*(x<0)+0*(x>=0);
-% zfun = @(x)0.1*exp(-x.^2);
-% zfun = @(x)0*x+0.1;
-% zfun = @(x)5*(x<=0)+10*(x>0);
-% zfun = @(x)1/(1-0.41884)+1.6*10^(-7)*(0.41884^2-1)*x.^2/(1+0.41884)^2;
-% ufun = @(x)0*x;
-% ufun = @(x)40*(x>0);
- 
- 
-% a = 0.0185; % Carrier_Greenspan
-% hb = 1;
-% x0 = -30;
-% x1 = 9999;
-
-% a = 0.07;  % Hsiao
-% hb = 0.2;
-% a = 0.0638;
-% hb = 0.22;
-% a = 0.0589;
-% hb = 0.18+0.076;
-% x0 = 3;
-% x1 = 13.9;
-
-a = 0.0185;
-hb = 0.3;
-x0 = -15;
-x1 = 1000;
-
-c = sqrt(9.81*(hb+a));
-kap = sqrt(3*a)/(2*hb*sqrt(hb+a));
-
-zfun = @(x)a*sech(kap*(x-x0)).^2.*(x<=x1) - 10*(x>x1);
-ufun = @(x)c*(1-hb./(zfun(x)+hb));
-
 
 ze = zfun(x);
+% Make sure that the free-surface is beneath the bathymetry
 for i = 1:length(ze)
     if (ze(i)+d(i))<=0
         ze(i) = h0-d(i);
     end
 end 
 qe = ufun(x).*(ze+d);
-
 
 %% Write hotstart file
 fid  = fopen(hotfile,'w');

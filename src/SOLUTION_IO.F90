@@ -147,13 +147,13 @@
 !--------------------------------------------------------------------------!
       SUBROUTINE WRITE_RUNUP
       
-      USE GLOBALS,    ONLY : WDFLG,NE,ZE,PHIB,IRK,MAXRUNUP,TIME,FORTRUNUP
+      USE GLOBALS,    ONLY : WDFLG,NE,ZE,PHIB,MAXRUNUP,TIME,FORTRUNUP,X
       USE READ_DGINP, ONLY : P
       USE SIZES,      ONLY : SZ
       
       IMPLICIT NONE
       INTEGER  :: I,L,XS
-      REAL(SZ) :: ZE_IN
+      REAL(SZ) :: ZE_IN,RUNLOC
       
 !.....First find shoreline
       XS = 0
@@ -164,17 +164,19 @@
         END IF
       END DO
 !.....If the shoreline is found then calculate runup
+      RUNLOC = 0.D0
       IF (XS.NE.0) THEN
         ZE_IN = 0.D0
         DO I = 1,P+1
-          ZE_IN = ZE_IN + ZE(I,XS,IRK)*PHIB(I,2)
+          ZE_IN = ZE_IN + ZE(I,XS,1)*PHIB(I,2)
         END DO
         MAXRUNUP = MAX(MAXRUNUP,ZE_IN)
+        RUNLOC = MAX(RUNLOC,ZE_IN)
       ELSE
         ZE_IN = -9999.D0
       END IF
 !.....Write runup results
-      WRITE(FORTRUNUP,'(2F32.16)') TIME, ZE_IN
+      WRITE(FORTRUNUP,'(3F32.16)') TIME, X(XS+1), RUNLOC
       
       RETURN
       END SUBROUTINE
@@ -225,7 +227,7 @@
         DO S = 1,NUMSTNS
           READ(99,*) STNX
           DO L = 1,NE           
-            IF (X(L).LT.STNX.AND.X(L+1).GT.STNX) THEN
+            IF (X(L).LE.STNX.AND.X(L+1).GT.STNX) THEN
               STNELEM(S) = L
               STNXI = -1.D0 + 2.D0*(STNX-X(L))/LE(L)
               IF (ADJUSTL(TRIM(DGBASIS)).EQ.'NODAL'.OR.                    &
@@ -238,6 +240,8 @@
                   PHISTN(S,I) = GETMODAL(P,I,STNXI,0)
                 END DO
               END IF
+              print*, "Station # ", S," is in element ",STNELEM(S)
+              WRITE(FORT16,"(A,I,A,I)") "Station # ", S," is in element ",STNELEM(S)
               GOTO 6100
             END IF
           END DO

@@ -110,7 +110,8 @@
      &                    DE_ED,DE_IN,DX_IN,WDFLG,PD,PB,MANN,SPNG_GEN,     &
      &                    SPNG_ABS,SPNG_ZAMP,SPNG_QAMP,SPNG_K,SPNG_SIG,    &
      &                    PP_NEGP,PP_WEGP,PP_XEGP,PP_MU,PP_PHI,PP_DPHI,    &
-     &                    PP_DDPHI,PP_WEI,DISPFLG,PHISTN,STNELEM
+     &                    PP_DDPHI,PP_WEI,DISPFLG,PHISTN,STNELEM,PDLVL,    &
+     &                    PBLVL
      USE READ_DGINP, ONLY : INONHYDRO
       
       IMPLICIT NONE
@@ -141,6 +142,7 @@
         DEALLOCATE(PP_WEGP,PP_XEGP,PP_MU)
         DEALLOCATE(pp_phi,pp_dphi,pp_ddphi)
         DEALLOCATE(pp_wei)
+        DEALLOCATE(PDLVL,PBLVL)
       END IF
 !.....Nodal Attributes
       DEALLOCATE(MANN)
@@ -1106,6 +1108,8 @@
         END IF
         PRINT "(A29,F16.8,A4)", "Station output records every ",STNSNAP,"(s)"
         WRITE(FORT16,"(A29,F16.8,A4)") "Station output records every ",STNSNAP,"(s)"
+      ELSE
+        SSNAP = 9999
       END IF
       
       PRINT "(A)", " "
@@ -1118,7 +1122,7 @@
 !..........................................................................!
       SUBROUTINE GET_NODAL_ATTR
       
-      USE READ_DGINP, ONLY : NWP,NEGP,P
+      USE READ_DGINP, ONLY : NWP,NEGP,P,nodalattr_file
       USE GLOBALS,    ONLY : MANN,NE,SPNG_GEN,SPNG_ABS,NUM_FREQ,SPNG_ZAMP, &
      &                       SPNG_QAMP,SPNG_K,SPNG_SIG,SPONGE_TYPE,        &
      &                       SPNG_DIMP,FORT16
@@ -1136,7 +1140,7 @@
       
       sponge_generation = .FALSE.
 !..... Make sure nodal attributes file exists
-      INQUIRE(FILE='fort.13', EXIST = file_exists)
+      INQUIRE(FILE=TRIM(nodalattr_file), EXIST = file_exists)
       IF(file_exists == .FALSE.) THEN
         PRINT*, "nodal attributes file (fort.13) does not exist"
         WRITE(FORT16,*) "nodal attributes file (fort.13) does not exist"
@@ -1151,7 +1155,7 @@
       WRITE(FORT16,"(A)") "       Read nodal attributes file            "
       WRITE(FORT16,"(A)") "---------------------------------------------"
       WRITE(FORT16,"(A)") " "
-      OPEN(UNIT=13,FILE='fort.13',ACTION='READ')
+      OPEN(UNIT=13,FILE=TRIM(nodalattr_file),ACTION='READ')
       
 !.....Begin reading in nodal attributes
       READ(13,'(A)') JC1

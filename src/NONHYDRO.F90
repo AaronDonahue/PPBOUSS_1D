@@ -1035,9 +1035,10 @@
 !..........................................................................!
       SUBROUTINE SETUP_WASUPP
       
-      USE READ_DGINP, ONLY : INONHYDRO
+      USE READ_DGINP, ONLY : INONHYDRO,NONHYDRO_EXT,P
       USE GLOBALS,    ONLY : PP_NEGP,PP_WEGP,PP_XEGP,PP_PHI,PP_DPHI,       &
-     &                       PP_DDPHI,PP_WEI,PP_MU,WDFLG,DISPFLG
+     &                       PP_DDPHI,PP_WEI,PP_MU,WDFLG,DISPFLG,NE,PPCNT, &
+     &                       PDLVL,PBLVL
       
       IMPLICIT NONE
       
@@ -1051,6 +1052,10 @@
       
       CALL WASUPP_Gauss
       CALL WASUPP_Basis
+      
+      ! Setup extrapolation variables
+      ALLOCATE(PDLVL(NONHYDRO_EXT+1,NE,P+1),PBLVL(NONHYDRO_EXT+1,NE,P+1))
+      PPCNT = 0
 
       ! Setup the dispersion flags, initialize through wet/dry flag
       DISPFLG(:) = WDFLG(:)

@@ -10,7 +10,7 @@
       
 !.....Open fort.16, simulation output file
       FORT16 = 16
-      OPEN(UNIT=FORT16,FILE=TRIM(out_direc)//'fort.16',STATUS='REPLACE')      
+      OPEN(UNIT=FORT16,FILE='fort.16',STATUS='REPLACE')      
 !.....Prep the DG run
       CALL PREP_DG
 !.....Deal with output files
@@ -19,7 +19,7 @@
       CALL version 
 !.....Run through timesteps
       TIME = 0.D0
-      CALL WRITE_63
+      CALL WRITE_OUTPUT_GLOBAL
       DO SNAP = 1,TIMESTEPS
         ! Advance the solution in time
         CALL DG_TIMESTEP
@@ -28,7 +28,7 @@
         IF (MOD(SNAP,TSNAP).EQ.0) THEN
           CALL WRITE_OUTPUT_GLOBAL
         END IF
-        IF (MOD(SNAP,SSNAP).EQ.0) THEN
+        IF (MOD(SNAP,SSNAP).EQ.0.and.TRIM(station_file).NE."none") THEN
           CALL WRITE_OUTPUT_STATION
         END IF
         ! Stability Check

@@ -103,8 +103,8 @@ $(ODIR) :
 version:
 	@sed -i '9 c \      PRINT*, "  Branch: $(GIT_BRANCH)" ' $(VPATH)version.F90	
 	@sed -i '10 c \      PRINT*, "  SHA: $(GIT_SHA) $(GIT_MOD)" ' $(VPATH)version.F90
-	@sed -i '17 c \      WRITE(FORT16,*) "  Branch: $(GIT_BRANCH)" ' $(VPATH)version.F90	
-	@sed -i '18 c \      WRITE(FORT16,*) "  SHA: $(GIT_SHA) $(GIT_MOD)" ' $(VPATH)version.F90
+	@sed -i '16 c \      WRITE(FORT16,*) "  Branch: $(GIT_BRANCH)" ' $(VPATH)version.F90	
+	@sed -i '17 c \      WRITE(FORT16,*) "  SHA: $(GIT_SHA) $(GIT_MOD)" ' $(VPATH)version.F90
 
 ########################################################################
 #                            Clean Targets                             #

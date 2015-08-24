@@ -50,6 +50,8 @@
       REAL(SZ),ALLOCATABLE    :: PD(:,:,:),PB(:,:,:)
       REAL(SZ),ALLOCATABLE    :: PP_XEGP(:),PP_WEGP(:),PP_MU(:)
       REAL(SZ),ALLOCATABLE    :: PP_PHI(:,:),PP_DPHI(:,:),PP_DDPHI(:,:),PP_WEI(:,:)
+      REAL(SZ),ALLOCATABLE    :: PDLVL(:,:,:),PBLVL(:,:,:)
+      INTEGER		      :: PPCNT
 !.....Nodal Attributes
       REAL(SZ),ALLOCATABLE    :: MANN(:,:)
       REAL(SZ),ALLOCATABLE    :: SPNG_GEN(:,:),SPNG_ABS(:,:)

@@ -3,9 +3,10 @@
       SUBROUTINE DG_TIMESTEP
       
       USE GLOBALS,    ONLY : IRK,ZE_RHS,QE_RHS,ZE,QE,ATVD,BTVD,DT,NE,      &
-     &                       WDFLG,TTVD,DT,TIME,TIME_RK,DISPFLG,PD,PB
+     &                       WDFLG,TTVD,DT,TIME,TIME_RK,DISPFLG,PD,PB,     &
+     &                       PDLVL,PBLVL
       USE SIZES,      ONLY : SZ
-      USE READ_DGINP, ONLY : NRK,P,IWET,ISLP,INONHYDRO,IBREAK
+      USE READ_DGINP, ONLY : NRK,P,IWET,ISLP,INONHYDRO,IBREAK,NONHYDRO_EXT
 
       IMPLICIT NONE
       INTEGER	:: L,I,K
@@ -75,6 +76,13 @@
         
         PD(I,:,1) = PD(I,:,NRK)
         PB(I,:,1) = PB(I,:,NRK)
+        
+        DO K = 1,NONHYDRO_EXT
+          PDLVL(I,:,K) = PDLVL(I,:,K+1)
+          PBLVL(I,:,K) = PBLVL(I,:,K+1)
+        END DO
+        PDLVL(I,:,NONHYDRO_EXT+1) = PD(I,:,1)
+        PBLVL(I,:,NONHYDRO_EXT+1) = PB(I,:,1)
       END DO
 
       RETURN
@@ -371,7 +379,7 @@
 !..........................................................................!
       SUBROUTINE SWE_RHS_VARIABLES
       
-      USE READ_DGINP, ONLY : NEGP,P,INONHYDRO
+      USE READ_DGINP, ONLY : NEGP,P,INONHYDRO,NONHYDRO_EXT
       USE GLOBALS,    ONLY : PD,PB,WDFLG,LE,PSI,DPSI,PHI,DPHI,WEGP,ZE_RHS, &
      &                       QE_RHS,DE_IN,DX_IN,IRK,NE,G,ZE,QE,MANN,X,XEGP,&
      &                       TIME_RK,SPNG_GEN,SPNG_ABS,DISPFLG
@@ -383,9 +391,16 @@
       REAL(SZ) :: QE_IN,ZE_IN,HE_IN,UE_IN
       REAL(SZ) :: PDX_IN,PB_IN,PD_IN
       REAL(SZ) :: ZE_OUT,QE_OUT,ZE_IMPOSED,QE_IMPOSED,XL,XIN
+      REAL(SZ) :: PDLOC(P+1,NE),PBLOC(P+1,NE)
       
 !.....Determine Nonhydrostatic pressure contribution
-      CALL NONHYDRO
+      ! Check to see if the pressure solution will be extrapolated.
+!       IF (NONHYDRO_EXT.EQ.0.AND.IRK.EQ.1) THEN	! No extrapolation used
+        CALL NONHYDRO
+        PDLOC = PD(:,:,IRK)
+        PBLOC = PB(:,:,IRK)
+!       END IF
+      
 !.....Add extra variables to RHS vectors
       DO L = 1,NE
         IF (WDFLG(L).NE.0) THEN
@@ -400,9 +415,13 @@
               ZE_IN = ZE_IN + ZE(I,L,IRK)*PHI(I,K)
               QE_IN = QE_IN + QE(I,L,IRK)*PHI(I,K)
               
-              PDX_IN = PDX_IN + PD(I,L,IRK)*DPSI(I,K)/(C12*LE(L))
-              PB_IN  = PB_IN  + PB(I,L,IRK)*PSI(I,K)
-              PD_IN  = PD_IN  + PD(I,L,IRK)*PSI(I,K)
+!               PDX_IN = PDX_IN + PD(I,L,IRK)*DPSI(I,K)/(C12*LE(L))
+!               PB_IN  = PB_IN  + PB(I,L,IRK)*PSI(I,K)
+!               PD_IN  = PD_IN  + PD(I,L,IRK)*PSI(I,K)
+              
+              PDX_IN = PDX_IN + PDLOC(I,L)*DPSI(I,K)/(C12*LE(L))
+              PB_IN  = PB_IN  + PBLOC(I,L)*PSI(I,K)
+              PD_IN  = PD_IN  + PDLOC(I,L)*PSI(I,K)
             END DO
             HE_IN = ZE_IN + DE_IN(L,K)
             UE_IN = QE_IN/HE_IN

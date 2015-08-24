@@ -7,14 +7,13 @@
       
       PRINT*, "Version Information"
       PRINT*, "  Branch: master" 
-      PRINT*, "  SHA: 77060b6daaac05577eea69051ff5178d80d99be4     +" 
+      PRINT*, "  SHA: a7c9e4071782dad4717a799f0d4746db04bcc41e     +" 
       PRINT*, " "
       
       WRITE(FORT16,*) 'DG_WASUPP'
       WRITE(FORT16,*) ' '
       WRITE(FORT16,*) "Version Information"
       WRITE(FORT16,*) "  Branch: master" 
-      WRITE(FORT16,*) "  Branch: master" 
-      WRITE(FORT16,*) "  SHA: 77060b6daaac05577eea69051ff5178d80d99be4     +" 
+      WRITE(FORT16,*) "  SHA: a7c9e4071782dad4717a799f0d4746db04bcc41e     +" 
  
       END SUBROUTINE version
