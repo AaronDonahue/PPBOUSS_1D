@@ -29,10 +29,10 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Nodal attributes file control variables
-% nodefile = 'fort.13';
-% noderun = 'test';
-% p = 1;
-% gridfile = 'fort.14';
+ nodefile = 'fort.13';
+ noderun = 'test';
+ p = 1;
+ gridfile = 'fort.14';
 
 % --Ting and Kirby
 %  nodefile = 'fort.13';
@@ -47,10 +47,10 @@
 %  gridfile = 'Solitary.14';
 
 % --Breakwater (Hsiao)
- nodefile = 'Hsiao.13';
- noderun = 'Hsiao';
- p = 1;
- gridfile = 'Hsiao_case1.14';
+% nodefile = 'Hsiao.13';
+% noderun = 'Hsiao';
+% p = 1;
+% gridfile = 'Hsiao_case1.14';
 %  %  gridfile = 'Hsiao_case2.14';
 %  %  gridfile = 'Hsiao_case3.14';
 
@@ -99,7 +99,7 @@ ind = 0;
 ind = ind+1;
 attr(ind).name      = 'mannings_n_at_sea_floor';
 attr(ind).unit      = 'm^2/s';
-attr(ind).on        = 1;
+attr(ind).on        = 0;
 attr(ind).default   = 0.004;
 attr(ind).numnondef = 0;
 attr(ind).nondefvalue = [];
@@ -109,7 +109,7 @@ attr(ind).nondefelem  = [];
 ind = ind+1;
 attr(ind).name    = 'sponge_generation_layer';
 attr(ind).unit    = 'unitless';
-attr(ind).on      = 0;
+attr(ind).on      = 1;
 attr(ind).default = 0;
 attr(ind).numnondef = 0;
 attr(ind).nondefvalue = [];
@@ -136,7 +136,7 @@ end
 %% Sponge Generation
 if attr(2).on == 1
     samp = 30;
-    slen = 10;
+    slen = 5;
     sord = 3;
     x0 = xt(1);
     sfun = @(x)samp/slen*(sord+1)*(1-(x-x0)/slen).^sord;
@@ -154,10 +154,10 @@ if attr(3).on == 1
     samp = 30;
     slen = 5;
     sord = 3;
-    x0 = xt(1);
-    sfun = @(x)samp/slen*(sord+1)*(1-(x-x0)/slen).^sord;
-%     x0 = xt(end);
-%     sfun = @(x)samp/slen*(sord+1)*((x-x0+slen)/slen).^sord;
+%    x0 = xt(1);
+%    sfun = @(x)samp/slen*(sord+1)*(1-(x-x0)/slen).^sord;
+    x0 = xt(end);
+    sfun = @(x)samp/slen*(sord+1)*((x-x0+slen)/slen).^sord;
     for l = 1:ne
         if xt(l) < x0+slen %xt(l) > x0-slen
             attr(3).numnondef = attr(3).numnondef + 1;

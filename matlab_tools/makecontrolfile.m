@@ -64,7 +64,7 @@ breakingmodel = 'duran'; % Breaking model to be used, currently
                          %             trouble elements.
 
 % Nodal Attributes (i.e. friction, sponge generation/absorption)
-nwp = 0; % Number of nodal attributes to be used, must match nodal attributes file
+nwp = 2; % Number of nodal attributes to be used, must match nodal attributes file
 nodalattr_file = 'fort.13'; % Name of nodal attributes file. Required if nwp>0
 
 % Station output
@@ -78,7 +78,7 @@ station_timestep = -999;       % Time snap for station output;
 
                                
 % Pressure Poisson control
-inonhydro = 0; % Level of pressure-Poisson solver, 0 = SWE, 2 = mu^2, 4 = mu^4
+inonhydro = 2; % Level of pressure-Poisson solver, 0 = SWE, 2 = mu^2, 4 = mu^4
 
 
 %% Write control file

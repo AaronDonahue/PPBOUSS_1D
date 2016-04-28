@@ -23,12 +23,12 @@
 
 
 %% Controls for gridfile
-%  runname = 'test';
-%  gridfile = 'fort.14';
-%  dx = 1;
-%  xl = -10;
-%  xr = 10;
-%  dep_fun = @(x)0*x+1;
+  runname = 'test';
+  gridfile = 'fort.14';
+  dx = 1;
+  xl = -10;
+  xr = 10;
+  dep_fun = @(x)0*x+1;
 
 
 % --Ting and Kirby
@@ -52,21 +52,21 @@
 %  dep_fun = @(x)1 - 1/19.85*(x+19.85).*(x>=-19.85);
 
 % --Breakwater (Hsiao)
-runname = 'Hsiao_case1';
-gridfile = 'Hsiao_case1.14';
- dx = 0.02;
- xl = -10;
- xr = 25;
-hb = 0.18;
-eadj = 0.02;
-% eadj = 0.04;
-% eadj = 0.076;
-dep_fun = @(x) (hb - 1/20*(x-10).*(x>=10).*(x<=13.6) ...
-       - (1/4*(x-13.6)+hb).*(x>13.6).*(x<13.9) ...
-       - (0.076+hb).*(x>=13.9).*(x<=13.948) ...
-       - (-1/1.8*(x-13.948)+0.076+hb).*(x>=13.948).*(x<=14.045) ...
-       - 1/20*(x-10).*(x>14.045))+eadj;
-
+%runname = 'Hsiao_case1';
+%gridfile = 'Hsiao_case1.14';
+% dx = 0.02;
+% xl = -10;
+% xr = 25;
+%hb = 0.18;
+%eadj = 0.02;
+%% eadj = 0.04;
+%% eadj = 0.076;
+%dep_fun = @(x) (hb - 1/20*(x-10).*(x>=10).*(x<=13.6) ...
+%       - (1/4*(x-13.6)+hb).*(x>13.6).*(x<13.9) ...
+%       - (0.076+hb).*(x>=13.9).*(x<=13.948) ...
+%       - (-1/1.8*(x-13.948)+0.076+hb).*(x>=13.948).*(x<=14.045) ...
+%       - 1/20*(x-10).*(x>14.045))+eadj;
+%
 % --Carrier and Greenspan problem
 % runname = 'Carrier_Greenspan';
 % gridfile = 'carrier.14';

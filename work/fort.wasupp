@@ -1,0 +1,40 @@
+!---------------------------------------------------!
+! Control file for test simulation
+!---------------------------------------------------!
+! Grid and Hotstart Files
+grid_file = fort.14
+ihot = 0
+hotstart_file = fort.67
+out_direc = ./
+!---------------------------------------------------!
+! DG Control Variables
+p = 1
+dgbasis = nodal
+negp = 8
+nrk = 3
+boundarytype = reflective
+!---------------------------------------------------!
+! Time control variables
+maxtime = 10.0000000000000000
+timesnap = 0.1000000000000000
+cfl = 0.5000000000000000
+!---------------------------------------------------!
+! Station file
+station_file = none
+station_timestep = -999.0000000000000000
+!---------------------------------------------------!
+! Nodal Attributes
+nwp = 2
+nodalattr_file = fort.13
+!---------------------------------------------------!
+! Physics 
+iwet = 0
+h0 = 0.0000100000000000
+islp = 0
+islpconstant = 50.0000000000000000
+ibreak = 0
+breakingmodel = duran
+!---------------------------------------------------!
+! pressure-Poisson
+inonhydro = 2
+!---------------------------------------------------!
