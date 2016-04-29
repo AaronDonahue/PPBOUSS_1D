@@ -1,0 +1,21 @@
+AaronDonahue - Incorporate Eddy Viscosity type breaking paradigm.
+AaronDonahue - Revamp sponge forcing interface with the code to 
+	mirror what dam is doing with fort.53001 and fort.54001.
+		- Need to be careful with backward compatibility
+		- To this end, one idea would be to have code search for
+		  fort.53001 and fort.54001.  If these are found then proceed
+		  as normal with Dam's approach.  If these are not found then
+		  assume a legacy type forcing and look for sponge.151 file.
+		- Create a new "case" in ze_imposed and qe_imposed that reflects
+		  the fort.53/4001 approach.
+		- Create a Matlab tool that does two things:
+			a) Can create the appropriate fort.53/4001 file from the
+			   the fort.14 grid file and user designated values.  Do
+			   this for monochromatic waves and irregular waves.
+			b) Have an option to convert a sponge.151 file to the new
+   			   format.
+		- Just a refresher on Dam's approach.  It follows the same format as
+		  an ADCIRC fort.53/4 file but with amplitude and phase on each node
+		  defined for each frequency.  This is potentially a cleaner way to
+ 		  interface the spectrum to be forced with the code.  It also allows
+		  for a seamless use of ADCIRC outputs to be used as inputs.  
