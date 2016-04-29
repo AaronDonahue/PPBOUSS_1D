@@ -888,7 +888,8 @@
       FUNCTION ZE_IMPOSED(XIN,TIN) RESULT(YOUT)
       
       USE GLOBALS, ONLY : NUM_FREQ,SPNG_ZAMP,SPNG_QAMP,SPNG_K,SPNG_SIG,    &
-     &                    SPONGE_TYPE,SPNG_DIMP,G
+     &                    SPONGE_TYPE,SPNG_DIMP,G                          &
+     &                    ,SPNG_PHASE
       USE SIZES,   ONLY : SZ
       
       IMPLICIT NONE
@@ -909,6 +910,13 @@
      &               XIN/SPNG_DIMP-SPNG_SIG(FREQ)*TIN*DSQRT(G/SPNG_DIMP) ))
           END DO
           YOUT = SPNG_DIMP*YOUT
+        CASE ('SIN_PHASE')
+          YOUT = 0.D0
+          DO FREQ = 1,NUM_FREQ
+            YOUT = YOUT + SPNG_ZAMP(FREQ)*DCOS(SPNG_K(FREQ)*XIN            &
+     &                                             -SPNG_SIG(FREQ)*TIN     &
+     &                                             -SPNG_PHASE(FREQ) )
+          END DO
         CASE DEFAULT
           YOUT = 0.D0
       END SELECT
@@ -921,7 +929,8 @@
       FUNCTION QE_IMPOSED(XIN,TIN,ZIN) RESULT(YOUT)
       
       USE GLOBALS, ONLY : NUM_FREQ,SPNG_QAMP,SPNG_QAMP,SPNG_K,SPNG_SIG,    &
-     &                    SPONGE_TYPE,SPNG_DIMP,G
+     &                    SPONGE_TYPE,SPNG_DIMP,G                          &
+     &                    ,SPNG_PHASE
       USE SIZES, ONLY : SZ
       
       IMPLICIT NONE
@@ -945,6 +954,14 @@
      &               XIN/SPNG_DIMP-SPNG_SIG(FREQ)*TIN*DSQRT(G/SPNG_DIMP) ))
           END DO
           YOUT = YOUT*DSQRT(G*SPNG_DIMP)*SPNG_DIMP
+        CASE ('SIN_PHASE')
+          YOUT = 0.D0
+          DO FREQ = 1,NUM_FREQ
+            YOUT = YOUT + SPNG_QAMP(FREQ)*DCOS(SPNG_K(FREQ)*XIN            &
+     &                                             -SPNG_SIG(FREQ)*TIN     &
+     &                                             -SPNG_PHASE(FREQ) )
+          END DO
+          YOUT = YOUT*(SPNG_DIMP+ZIN)
         CASE DEFAULT
           YOUT = 0.D0
       END SELECT

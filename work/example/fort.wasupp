@@ -20,8 +20,8 @@ timesnap = 0.1000000000000000
 cfl = 0.5000000000000000
 !---------------------------------------------------!
 ! Station file
-station_file = none
-station_timestep = -999.0000000000000000
+station_file = testphase.txt
+station_timestep = 0.1000000000000000
 !---------------------------------------------------!
 ! Nodal Attributes
 nwp = 2

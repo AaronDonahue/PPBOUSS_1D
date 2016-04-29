@@ -1125,7 +1125,8 @@
       USE READ_DGINP, ONLY : NWP,NEGP,P,nodalattr_file
       USE GLOBALS,    ONLY : MANN,NE,SPNG_GEN,SPNG_ABS,NUM_FREQ,SPNG_ZAMP, &
      &                       SPNG_QAMP,SPNG_K,SPNG_SIG,SPONGE_TYPE,        &
-     &                       SPNG_DIMP,FORT16
+     &                       SPNG_DIMP,FORT16                              &
+     &                       ,SPNG_PHASE
       USE SIZES,      ONLY : SZ
       
       IMPLICIT NONE
@@ -1302,10 +1303,17 @@
           READ(151,*) NUM_FREQ, SPNG_DIMP
           ALLOCATE(SPNG_ZAMP(NUM_FREQ),SPNG_QAMP(NUM_FREQ))          
           ALLOCATE(SPNG_K(NUM_FREQ))
-          ALLOCATE(SPNG_SIG(NUM_FREQ))
-          DO FREQ = 1,NUM_FREQ
-            READ(151,*) SPNG_ZAMP(FREQ), SPNG_QAMP(FREQ), SPNG_K(FREQ), SPNG_SIG(FREQ)
-          END DO
+          ALLOCATE(SPNG_SIG(NUM_FREQ))        
+          IF (SPONGE_TYPE.EQ.'SIN_PHASE') THEN
+            ALLOCATE(SPNG_PHASE(NUM_FREQ))
+            DO FREQ = 1,NUM_FREQ
+              READ(151,*) SPNG_ZAMP(FREQ), SPNG_QAMP(FREQ), SPNG_K(FREQ), SPNG_SIG(FREQ), SPNG_PHASE(FREQ)
+            END DO
+          ELSE
+            DO FREQ = 1,NUM_FREQ
+              READ(151,*) SPNG_ZAMP(FREQ), SPNG_QAMP(FREQ), SPNG_K(FREQ), SPNG_SIG(FREQ)
+            END DO
+          END IF
         CLOSE(151)
       END IF
       

@@ -57,6 +57,7 @@
       REAL(SZ),ALLOCATABLE    :: SPNG_GEN(:,:),SPNG_ABS(:,:)
 !.....Sponge Generation variables
       REAL(SZ),ALLOCATABLE    :: SPNG_ZAMP(:),SPNG_QAMP(:),SPNG_K(:),SPNG_SIG(:)
+      REAL(SZ),ALLOCATABLE    :: SPNG_PHASE(:)
       CHARACTER(LEN=100)      :: SPONGE_TYPE
       INTEGER                 :: NUM_FREQ
       REAL(SZ)                :: SPNG_DIMP
