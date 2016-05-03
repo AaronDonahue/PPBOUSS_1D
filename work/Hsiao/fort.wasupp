@@ -2,9 +2,13 @@
 ! Control file for test simulation
 !---------------------------------------------------!
 ! Grid and Hotstart Files
-grid_file = fort.14
-ihot = 0
-hotstart_file = fort.67
+grid_file = Hsiao_case1.14
+! grid_file = Hsiao_case2.14
+! grid_file = Hsiao_case3.14
+ihot = 1
+hotstart_file = Hsiao_case1.67
+! hotstart_file = Hsiao_case2.67
+! hotstart_file = Hsiao_case3.67
 out_direc = ./
 !---------------------------------------------------!
 ! DG Control Variables
@@ -15,20 +19,20 @@ nrk = 3
 boundarytype = reflective
 !---------------------------------------------------!
 ! Time control variables
-maxtime = 10.0000000000000000
+maxtime = 15.0000000000000000
 timesnap = 0.1000000000000000
-cfl = 0.5000000000000000
+cfl = 0.100000000000000000
 !---------------------------------------------------!
 ! Station file
-station_file = testphase.txt
+station_file = Hsiao.stn
 station_timestep = 0.1000000000000000
 !---------------------------------------------------!
 ! Nodal Attributes
-nwp = 2
-nodalattr_file = fort.13
+nwp = 1
+nodalattr_file = Hsiao.13
 !---------------------------------------------------!
 ! Physics 
-iwet = 0
+iwet = 1
 h0 = 0.0000100000000000
 islp = 0
 islpconstant = 50.0000000000000000
@@ -39,5 +43,5 @@ breakingmodel = duran
 inonhydro = 2
 !---------------------------------------------------!
 ! Eddy Viscosity
-eddy_viscosity = 1
+eddy_viscosity = 1 
 !---------------------------------------------------!

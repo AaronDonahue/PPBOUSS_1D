@@ -4,7 +4,7 @@
       SUBROUTINE WRITE_OUTPUT_GLOBAL
       
       USE GLOBALS,    ONLY : TIME,FORT16
-      USE READ_DGINP, ONLY : INONHYDRO
+      USE READ_DGINP, ONLY : INONHYDRO,EDDY_VISCOSITY
       
       IMPLICIT NONE
       
@@ -18,6 +18,9 @@
         CALL WRITE_73
         CALL WRITE_74
       END IF
+    !  if (eddy_viscosity.eq.1) then
+        call write_65
+    !  end if
       
       RETURN
       END SUBROUTINE WRITE_OUTPUT_GLOBAL
@@ -107,6 +110,37 @@
 !--------------------------------------------------------------------------!
 !==========================================================================!
 !--------------------------------------------------------------------------!
+      SUBROUTINE WRITE_65
+
+      ! Write eddy viscosity values
+      
+      USE READ_DGINP, ONLY : P,nrk
+      USE GLOBALS,    ONLY : NE,TIME,FORT651,EDDY_B,EDDY_T,EDDY_V,X,       &
+     &                       EDDY_SRC,ze
+      
+      IMPLICIT NONE
+      INTEGER  :: I,L
+      character(len=32) :: fmt
+
+      write(fmt,'(A,I,A)') '(I,3f32.16,i,', p+1, 'f32.16)'
+!      write(fmt,'(A,I,A)') '(I,3f32.16,i,', 1, 'f32.16)'
+      
+      
+!.....Write DG output raw
+      WRITE(FORT651,'(F32.16)') TIME
+      DO L = 1,NE
+        WRITE(FORT651,'(I,<P+1>F32.16,I)') L, (eddy_src(I,L,1),I=1,P+1),eddy_b(L)
+!        WRITE(FORT651,fmt) L, (x(L+1)+x(L))/2.d0, eddy_v(L), &
+!     &                      eddy_t(L), eddy_b(L), (eddy_src(i,l,nrk+1),i=1,p+1)
+!        WRITE(FORT651,fmt) L, (x(L+1)+x(L))/2.d0, eddy_v(L), &
+!     &                      eddy_t(L), eddy_b(L), eddy_src(l)
+      END DO
+
+      RETURN
+      END SUBROUTINE WRITE_65
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
       SUBROUTINE WRITE_73
       
       USE READ_DGINP, ONLY : P
@@ -188,7 +222,7 @@
       USE READ_DGINP, ONLY : P,OUT_DIREC,station_file,dgbasis,INONHYDRO
       USE GLOBALS,    ONLY : NE,CPU_START,FORT631,FORT641,FORT731,FORT611, &
      &                       FORT741,FORT611,NUMSTNS,PHISTN,STNELEM,X,LE,  &
-     &                       FORT16,FORTRUNUP,MAXRUNUP
+     &                       FORT16,FORTRUNUP,MAXRUNUP,FORT651
       USE SIZES,      ONLY : SZ
       
       IMPLICIT NONE
@@ -261,6 +295,11 @@
       MAXRUNUP = -9999.D0
       FORTRUNUP = 51
       OPEN(UNIT=FORTRUNUP,FILE=TRIM(out_direc)//'runup.51',STATUS='REPLACE')
+
+      ! Eddy Viscosity file
+      FORT651 = 651
+      OPEN(UNIT=FORT651,FILE=TRIM(out_direc)//'eddy.65',STATUS='REPLACE')
+      WRITE(FORT651,'(I,I)') NE, P
       
       RETURN
       END SUBROUTINE INITIALIZE_OUTPUT
@@ -270,7 +309,8 @@
       SUBROUTINE FINISH_OUTPUT
       
       USE GLOBALS,    ONLY : CPU_START,CPU_FINISH,FORT16,FORT631,FORT641,  &
-     &                    FORT731,FORT741,FORT611,FORTRUNUP,MAXRUNUP
+     &                    FORT731,FORT741,FORT611,FORTRUNUP,MAXRUNUP,      &
+     &                    FORT651
       USE READ_DGINP, ONLY : INONHYDRO,STATION_FILE
       
       IMPLICIT NONE
@@ -280,6 +320,7 @@
       
       CLOSE(FORT631)
       CLOSE(FORT641)
+      CLOSE(FORT651)
       
       IF (INONHYDRO.GT.0) THEN
         CLOSE(FORT731)

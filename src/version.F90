@@ -6,14 +6,14 @@
       IMPLICIT NONE
       
       PRINT*, "Version Information"
-      PRINT*, "  Branch: master" 
-      PRINT*, "  SHA: b48d3531bf2461079ffe4ebe5f3b04999fdabfd2     +" 
+      PRINT*, "  Branch: Eddy_Visc" 
+      PRINT*, "  SHA: 71b46ca14be41149af1ef9cc0a5c1267efcd5a9c     +" 
       PRINT*, " "
       
       WRITE(FORT16,*) 'DG_WASUPP'
       WRITE(FORT16,*) ' '
       WRITE(FORT16,*) "Version Information"
-      WRITE(FORT16,*) "  Branch: master" 
-      WRITE(FORT16,*) "  SHA: b48d3531bf2461079ffe4ebe5f3b04999fdabfd2     +" 
+      WRITE(FORT16,*) "  Branch: Eddy_Visc" 
+      WRITE(FORT16,*) "  SHA: 71b46ca14be41149af1ef9cc0a5c1267efcd5a9c     +" 
  
       END SUBROUTINE version

@@ -6,7 +6,8 @@
      &                       WDFLG,TTVD,DT,TIME,TIME_RK,DISPFLG,PD,PB,     &
      &                       PDLVL,PBLVL
       USE SIZES,      ONLY : SZ
-      USE READ_DGINP, ONLY : NRK,P,IWET,ISLP,INONHYDRO,IBREAK,NONHYDRO_EXT
+      USE READ_DGINP, ONLY : NRK,P,IWET,ISLP,INONHYDRO,IBREAK,NONHYDRO_EXT,&
+     &                       EDDY_VISCOSITY
 
       IMPLICIT NONE
       INTEGER	:: L,I,K
@@ -55,14 +56,19 @@
         IF (ISLP.GT.0) THEN          
           CALL SLOPELIMIT
         END IF
-!.......Update NODISP flag is needed
+!.......Update NODISP flag if needed
         IF (INONHYDRO.NE.0.AND.IBREAK.NE.0) THEN
           CALL BREAKING
           DO L = 1,NE
             DISPFLG(L) = MIN(DISPFLG(L),WDFLG(L))
           END DO
         END IF
-        
+
+!.......Update eddy viscosity, if needed
+        if (eddy_viscosity.eq.1) then
+         call eddy_visc
+        end if    
+
       END DO
 !---------------------------------------------------------------------------!
 
@@ -84,6 +90,7 @@
         PDLVL(I,:,NONHYDRO_EXT+1) = PD(I,:,1)
         PBLVL(I,:,NONHYDRO_EXT+1) = PB(I,:,1)
       END DO
+
 
       RETURN
       END SUBROUTINE DG_TIMESTEP
@@ -379,10 +386,11 @@
 !..........................................................................!
       SUBROUTINE SWE_RHS_VARIABLES
       
-      USE READ_DGINP, ONLY : NEGP,P,INONHYDRO,NONHYDRO_EXT
+      USE READ_DGINP, ONLY : NEGP,P,INONHYDRO,NONHYDRO_EXT,NRK
       USE GLOBALS,    ONLY : PD,PB,WDFLG,LE,PSI,DPSI,PHI,DPHI,WEGP,ZE_RHS, &
      &                       QE_RHS,DE_IN,DX_IN,IRK,NE,G,ZE,QE,MANN,X,XEGP,&
-     &                       TIME_RK,SPNG_GEN,SPNG_ABS,DISPFLG
+     &                       TIME_RK,SPNG_GEN,SPNG_ABS,DISPFLG,            &
+     &                       eddy_src
       USE SIZES,      ONLY : SZ,C12
       
       IMPLICIT NONE
@@ -392,6 +400,7 @@
       REAL(SZ) :: PDX_IN,PB_IN,PD_IN
       REAL(SZ) :: ZE_OUT,QE_OUT,ZE_IMPOSED,QE_IMPOSED,XL,XIN
       REAL(SZ) :: PDLOC(P+1,NE),PBLOC(P+1,NE)
+      REAL(SZ) :: EDDY_IN
       
 !.....Determine Nonhydrostatic pressure contribution
       ! Check to see if the pressure solution will be extrapolated.
@@ -411,6 +420,9 @@
             PDX_IN = 0.D0
             PB_IN = 0.D0
             PD_IN = 0.D0
+
+            eddy_in = 0.d0
+
             DO I = 1,P+1
               ZE_IN = ZE_IN + ZE(I,L,IRK)*PHI(I,K)
               QE_IN = QE_IN + QE(I,L,IRK)*PHI(I,K)
@@ -422,6 +434,9 @@
               PDX_IN = PDX_IN + PDLOC(I,L)*DPSI(I,K)/(C12*LE(L))
               PB_IN  = PB_IN  + PBLOC(I,L)*PSI(I,K)
               PD_IN  = PD_IN  + PDLOC(I,L)*PSI(I,K)
+
+              eddy_in = eddy_in + eddy_src(i,l,irk)*dpsi(i,k)/(c12*le(l))
+              !eddy_in = eddy_in + eddy_src(i,l,irk)*phi(i,k)
             END DO
             HE_IN = ZE_IN + DE_IN(L,K)
             UE_IN = QE_IN/HE_IN
@@ -454,6 +469,9 @@
               ZE_SI = ZE_SI + SPNG_GEN(L,K)*(ZE_OUT-ZE_IN)
               QE_SI = QE_SI + SPNG_GEN(L,K)*(QE_OUT-QE_IN)
             END IF
+            ! Eddy Viscosity term
+!            qe_si = qe_si + eddy_src(l)
+            qe_si = qe_si + eddy_in
                   
             DO I = 1,P+1
               ZE_RHS(I,L,IRK) = ZE_RHS(I,L,IRK) + (ZE_FI*DPHI(I,K) +       &
@@ -986,7 +1004,8 @@
         CASE("duran_adj")
           CALL BREAKING_DURAN_ADJ
         CASE DEFAULT
-          CALL BREAKING_DURAN
+          write(*,*) 'Breaking Model not recognized, please check fort.wasupp file'
+          CALL EXIT
       END SELECT
 
       RETURN
@@ -1198,6 +1217,150 @@
       
       RETURN
       END SUBROUTINE BREAKING_TONELLI
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      SUBROUTINE eddy_visc
+      
+      USE GLOBALS,    ONLY : NE,TIME_RK,G,EDDY_T,EDDY_B,EDDY_V,eddy_src,LE &
+     &                       ,IRK
+      USE SIZES,      ONLY : SZ,C12
+      USE READ_DGINP, ONLY : MAXTIME,P,nrk
+      
+      IMPLICIT NONE
+      INTEGER  :: L,I
+      REAL(SZ) :: DE_IN(NE),UE_IN(NE),ZE_IN(NE),QE_IN(NE)
+      REAL(SZ) :: DE_X_IN(NE),UE_X_IN(NE),ZE_X_IN(NE),QE_X_IN(NE)
+      REAL(SZ) :: DE_XX_IN(NE),ZE_XX_IN(NE)
+      real(sz) :: eddy_tmp(ne),etmp(2)
+      real(sz) :: b(ne),delb,Tstar,etai,etaf,etastar
+      real(sz) :: tage,etatest
+      integer  :: initbreak(ne)
+
+      ! Based on the Kennedy et al. 2000 paper 
+      ! and based on finite difference approximations
+
+      ! Setup parameters for model
+      delb = 1.2d0
+      b(:) = 0.d0
+
+      !.....Project solution onto a finite difference mesh
+      !.....First project solution and first derivatives
+      CALL PROJ_FE_FD(DE_IN,DE_X_IN,DE_XX_IN,ZE_IN,ZE_X_IN, &
+                            ZE_XX_IN,UE_IN,UE_X_IN,QE_IN,QE_X_IN)
+      
+      do l = 1,ne
+        ! Determine nodal based parameters
+        Tstar = 5.d0*dsqrt(de_in(l)/g)
+
+!        etai    = 0.363970234266202d0*sign(1.d0,qe_x_in(l))   ! Slope based
+!        etaf    = 0.176326980708465d0*sign(1.d0,qe_x_in(l))   ! Slope based
+!        etatest = ze_x_in(l)
+        
+        etai    = 0.65d0*dsqrt(de_in(l)*g) ! eta_t based
+        etaf    = 0.15d0*dsqrt(de_in(l)*g) ! eta_t based
+        etatest = -qe_x_in(l)
+
+        ! Determine etastar
+        if (eddy_b(l).eq.1) then
+          tage = max(0.d0,time_rk-eddy_t(l))
+          if (tage.lt.Tstar) then
+            etastar = etai + tage/Tstar*(etaf-etai)
+          else
+            etastar = etaf
+          end if
+        else
+          etastar = etai
+        endif
+        ! From etastar determine B, and if breaking status changes change flag
+        if (eddy_b(l).eq.1) then
+          if (etatest.gt.2.d0*etastar) then
+            b(l) = 1.d0
+          elseif (etatest.gt.etastar) then
+            b(l) = etatest/etastar-1.d0
+          else
+            b(l) = 0.d0
+            eddy_b(l) = 0
+            eddy_t(l) = 2d0*maxtime
+          !  write(*,*) 'eddy visc stop at t = ',time_rk, 'and l = ', l
+          end if 
+        else
+          if (etatest.gt.2.d0*etastar) then
+            b(l) = 1.d0
+            eddy_b(l) = 1
+            eddy_t(l) = time_rk
+          !  write(*,*) 'eddy visc at t = ',time_rk, 'and l = ', l
+            ! check if neighbors need to be called breaking
+          elseif (etatest.gt.etastar) then
+            b(l) = etatest/etastar-1.d0
+            eddy_b(l) = 1
+            eddy_t(l) = time_rk
+          !  write(*,*) 'eddy visc at t = ',time_rk, 'and l = ', l
+          else
+            b(l) = 0.d0
+          end if
+        end if
+        ! Using B determine eddy viscosity value
+        eddy_v(l) = b(l)*delb**2*(de_in(l)+ze_in(l))*etatest
+
+        eddy_tmp(l) = eddy_v(l)*qe_x_in(l)
+
+      end do
+
+      ! determine eddy viscosity source term
+!      eddy_src(:,:,:) = 0.d0
+!      do l = 2,ne-1
+!        eddy_src(1,l,irk) = (eddy_tmp(l+1)-eddy_tmp(l-1))/2.d0/le(l)
+!      end do
+
+      DO I = 1,P+1
+        L = 1
+        eTMP(1) = C12*(eddy_TMP(L)  +eddy_TMP(L))
+        eTMP(2) = C12*(eddy_TMP(L+1)+eddy_TMP(L))
+        eddy_src(I,L,irk) = eTMP(1) + (eTMP(2)-eTMP(1))/2.D0*                   &
+     &                                ( 2.D0*REAL(I-1)/REAL(P) )
+        DO L = 2,NE-1
+          eTMP(1) = C12*(eddy_TMP(L-1)+eddy_TMP(L))
+          eTMP(2) = C12*(eddy_TMP(L+1)+eddy_TMP(L))
+          eddy_src(I,L,irk) = eTMP(1) + (eTMP(2)-eTMP(1))/2.D0*                 &
+     &                                ( 2.D0*REAL(I-1)/REAL(P) )
+        END DO
+        L = NE
+        eTMP(1) = C12*(eddy_TMP(L-1)+eddy_TMP(L))
+        eTMP(2) = C12*(eddy_TMP(L)  +eddy_TMP(L))
+        eddy_src(I,L,irk) = eTMP(1) + (eTMP(2)-eTMP(1))/2.D0*                   &
+     &                                ( 2.D0*REAL(I-1)/REAL(P) )
+      END DO      
+
+      ! Finally, check for new breaking nodes and flag adjacent 
+      ! non-breaking nodes as breaking
+      if (.false.) then
+      initbreak = eddy_b
+      if (eddy_b(1).eq.1.and.eddy_b(2).ne.1) then 
+        initbreak(2) = 1
+        eddy_t(2)    = time_rk
+      end if
+      do l = 2,ne-1
+        if (eddy_b(l).eq.1.and.eddy_b(l-1).ne.1) then
+          initbreak(l-1) = 1
+          eddy_t(l-1)    = time_rk
+        end if
+        if (eddy_b(l).eq.1.and.eddy_b(l+1).ne.1) then
+          initbreak(l+1) = 1
+          eddy_t(l+1)    = time_rk
+        end if
+      end do
+      if (eddy_b(ne).eq.1.and.eddy_b(ne-1).ne.1) then
+        initbreak(ne-1) = 1
+        eddy_t(ne-1)    = time_rk
+      end if
+      eddy_b = initbreak 
+      end if
+
+      
+
+      RETURN
+      END SUBROUTINE eddy_visc
 !--------------------------------------------------------------------------!
 !==========================================================================!
 !--------------------------------------------------------------------------!

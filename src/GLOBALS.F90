@@ -63,5 +63,10 @@
       REAL(SZ)                :: SPNG_DIMP
 !.....Misc. Variables
       REAL(SZ)                :: MAXRUNUP
+!.....Eddy Viscosity Variables
+      REAL(SZ),ALLOCATABLE    :: EDDY_T(:), EDDY_V(:)
+      REAL(SZ),ALLOCATABLE    :: EDDY_SRC(:,:,:)
+      INTEGER,ALLOCATABLE     :: EDDY_B(:)
+      INTEGER                 :: FORT651
 
       END MODULE GLOBALS

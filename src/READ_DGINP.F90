@@ -51,6 +51,7 @@
       INTEGER, TARGET         :: NWP
       INTEGER, TARGET         :: IBREAK
       INTEGER, TARGET         :: NONHYDRO_EXT
+      INTEGER, TARGET         :: EDDY_VISCOSITY
       ! Real Numbers
       REAL(SZ), TARGET        :: MaxTime
       REAL(SZ), TARGET        :: CFL_Adj
@@ -348,11 +349,12 @@
       dginp(17)%key = "inonhydro";      dginp(17)%iptr => INONHYDRO;      dginp(17)%required = .false.;    dginp(17)%iptr = 0
       dginp(18)%key = "nwp";            dginp(18)%iptr => NWP;            dginp(18)%required = .false.;    dginp(18)%iptr = 0
       dginp(19)%key = "ibreak";         dginp(19)%iptr => IBREAK;         dginp(19)%required = .false.;    dginp(19)%iptr = 0 
-      dginp(20)%key = "breakingmodel";  dginp(20)%cptr => BREAKMODEL;     dginp(20)%required = .false.;    dginp(20)%cptr = "tonelli" 
+      dginp(20)%key = "breakingmodel";  dginp(20)%cptr => BREAKMODEL;     dginp(20)%required = .false.;    dginp(20)%cptr = "none" 
       dginp(21)%key = "station_file";   dginp(21)%cptr => station_file;   dginp(21)%required = .false.;    dginp(21)%cptr = "none"
       dginp(22)%key = "station_timestep"; dginp(22)%rptr => STNSNAP;      dginp(22)%required = .false.;    dginp(22)%rptr = "-999.d0"
       dginp(23)%key = "nodalattr_file"; dginp(23)%cptr => nodalattr_file; dginp(23)%required = .false.;    dginp(23)%cptr = "fort.13"
       dginp(24)%key = "nonhydro_extrapolation"; dginp(24)%iptr => NONHYDRO_EXT; dginp(24)%required = .false.;    dginp(24)%iptr = 0
+      dginp(25)%key = "eddy_viscosity"; dginp(25)%iptr => EDDY_VISCOSITY; dginp(25)%required = .false.;    dginp(25)%iptr = 0
       
       
       
