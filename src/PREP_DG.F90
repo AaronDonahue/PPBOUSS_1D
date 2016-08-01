@@ -48,7 +48,7 @@
       USE GLOBALS,    ONLY : PHI,DPHI,PHIB,DPHIB,PSI,DPSI,PSIB,DPSIB,      &
      &                    ATVD,BTVD,TTVD,MDG,DGPIV,MCG,CGPIV,NE,ZE,QE,     &
      &                    ZE_RHS,QE_RHS,WDFLG,PD,PB,MANN,SPNG_GEN,SPNG_ABS,&
-     &                    DISPFLG,EDDY_V,EDDY_B,EDDY_T,EDDY_SRC
+     &                    DISPFLG,EDDY_V,EDDY_B,EDDY_T,EDDY_SRC,kbrwaveold
       USE READ_DGINP, ONLY : P,NRK,NEGP,MAXTIME
       
       IMPLICIT NONE
@@ -75,6 +75,7 @@
       ALLOCATE(EDDY_V(NE),EDDY_B(NE),EDDY_T(NE))
       ALLOCATE(EDDY_SRC(P+1,NE,NRK+1))
       !ALLOCATE(EDDY_SRC(NE))
+      allocate(kbrwaveold(9,ne))
 
 !.....Initialize certain variables
       PHI(:,:)      = 0.D0
@@ -105,6 +106,7 @@
       EDDY_B(:)     = 0
       EDDY_SRC(:,:,:) = 0.D0
       !EDDY_SRC(:) = 0.D0
+      kbrwaveold(:,:) = 0.d0
       
       RETURN
       END SUBROUTINE VARI_ALLOCATE

@@ -65,9 +65,9 @@
         END IF
 
 !.......Update eddy viscosity, if needed
-        if (eddy_viscosity.eq.1) then
-         call eddy_visc
-        end if    
+!        if (eddy_viscosity.eq.1) then
+!         call eddy_visc
+!        end if    
 
       END DO
 !---------------------------------------------------------------------------!
@@ -386,7 +386,7 @@
 !..........................................................................!
       SUBROUTINE SWE_RHS_VARIABLES
       
-      USE READ_DGINP, ONLY : NEGP,P,INONHYDRO,NONHYDRO_EXT,NRK
+      USE READ_DGINP, ONLY : NEGP,P,INONHYDRO,NONHYDRO_EXT,NRK,eddy_viscosity
       USE GLOBALS,    ONLY : PD,PB,WDFLG,LE,PSI,DPSI,PHI,DPHI,WEGP,ZE_RHS, &
      &                       QE_RHS,DE_IN,DX_IN,IRK,NE,G,ZE,QE,MANN,X,XEGP,&
      &                       TIME_RK,SPNG_GEN,SPNG_ABS,DISPFLG,            &
@@ -409,6 +409,11 @@
         PDLOC = PD(:,:,IRK)
         PBLOC = PB(:,:,IRK)
 !       END IF
+
+!.....Determine eddy viscosity contribution
+      if (eddy_viscosity.eq.1) then
+       call eddy_visc
+      end if    
       
 !.....Add extra variables to RHS vectors
       DO L = 1,NE
@@ -1220,7 +1225,7 @@
 !--------------------------------------------------------------------------!
 !==========================================================================!
 !--------------------------------------------------------------------------!
-      SUBROUTINE eddy_visc
+      SUBROUTINE eddy_visc_old
       
       USE GLOBALS,    ONLY : NE,TIME_RK,G,EDDY_T,EDDY_B,EDDY_V,eddy_src,LE &
      &                       ,IRK
@@ -1253,13 +1258,13 @@
         ! Determine nodal based parameters
         Tstar = 5.d0*dsqrt(de_in(l)/g)
 
-!        etai    = 0.363970234266202d0*sign(1.d0,qe_x_in(l))   ! Slope based
-!        etaf    = 0.176326980708465d0*sign(1.d0,qe_x_in(l))   ! Slope based
-!        etatest = ze_x_in(l)
+        etai    = 0.363970234266202d0!*sign(1.d0,-ue_in(l))   ! Slope based
+        etaf    = 0.176326980708465d0!*sign(1.d0,-ue_in(l))   ! Slope based
+        etatest = -ze_x_in(l)
         
-        etai    = 0.65d0*dsqrt(de_in(l)*g) ! eta_t based
-        etaf    = 0.15d0*dsqrt(de_in(l)*g) ! eta_t based
-        etatest = -qe_x_in(l)
+!        etai    = 0.65d0*dsqrt(de_in(l)*g) ! eta_t based
+!        etaf    = 0.15d0*dsqrt(de_in(l)*g) ! eta_t based
+!        etatest = -qe_x_in(l)
 
         ! Determine etastar
         if (eddy_b(l).eq.1) then
@@ -1301,7 +1306,7 @@
           end if
         end if
         ! Using B determine eddy viscosity value
-        eddy_v(l) = b(l)*delb**2*(de_in(l)+ze_in(l))*etatest
+        eddy_v(l) = b(l)*delb**2*(de_in(l)+ze_in(l))*abs(etatest)
 
         eddy_tmp(l) = eddy_v(l)*qe_x_in(l)
 
@@ -1360,7 +1365,438 @@
       
 
       RETURN
+      END SUBROUTINE eddy_visc_old
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      SUBROUTINE eddy_visc
+      
+      USE GLOBALS,    ONLY : NE,TIME_RK,G,EDDY_T,EDDY_B,EDDY_V,eddy_src,LE &
+     &                       ,IRK,numbrwavold
+      USE SIZES,      ONLY : SZ,C12,PI
+      USE READ_DGINP, ONLY : MAXTIME,P,nrk
+      
+      IMPLICIT NONE
+      INTEGER  :: L,I
+      REAL(SZ) :: DE_IN(NE),UE_IN(NE),ZE_IN(NE),QE_IN(NE)
+      REAL(SZ) :: DE_X_IN(NE),UE_X_IN(NE),ZE_X_IN(NE),QE_X_IN(NE)
+      REAL(SZ) :: DE_XX_IN(NE),ZE_XX_IN(NE)
+      real(sz) :: MatWavR(ne,3)
+      integer  :: numwav,MatWavI(ne,2)
+      real(sz) :: kbrwave(9,ne),phib,phif,ktb
+      real(sz) :: eddy_tmp(ne),etmp(2)
+      real(sz) :: b(ne),delb,estar,etat
+      real(sz) :: tb,TTb,u,locT
+      integer  :: jc,jt,k
+      
+      phib = 2.d0*PI/360.d0*20.d0
+      phif = 2.d0*PI/360.d0*8.d0
+      ktb  = 5.d0
+      b(:) = 0.d0
+      eddy_v(:) = 0.d0
+      eddy_tmp(:) = 0.d0
+      !eddy_src(:,:,:) = 0.d0
+      delb = 1.2d0
+
+      !.....Project solution onto a finite difference mesh
+      !.....First project solution and first derivatives
+      CALL PROJ_FE_FD(DE_IN,DE_X_IN,DE_XX_IN,ZE_IN,ZE_X_IN, &
+                            ZE_XX_IN,UE_IN,UE_X_IN,QE_IN,QE_X_IN)
+
+      !.... Find possible breaking waves
+      call waveprop(de_in,ze_in,de_x_in,ze_x_in,ue_in,MatWavI,MatWavR,numwav)
+!      print*, 'Num wav = ',numwav
+
+      !.... Array of breaking waves
+      if (numwav.gt.0) then
+        call BrWaveIndex(ktb,phib,phif,de_in,ue_in,ze_in,matwavi,      &
+     &                        matwavr,numwav,kbrwave)
+!        print*, 'Num Br = ', numbrwavold
+        ! Now assign eddy viscosity terms based on breaking waves
+        do i = 1,numbrwavold
+!            kbrwave(1:9,numbrwave) = (/ tb,jb,TTb,jc,jt,tanphi,d,c,u /)
+          tb  = kbrwave(1,i)
+          TTb = kbrwave(3,i)
+          jc  = int(kbrwave(4,i))
+          jt  = int(kbrwave(5,i))
+          u   = kbrwave(9,i)
+!          write(*,'(9F16.8)') kbrwave(1:9,i)
+          ! eta star
+          locT = tb-time_rk
+          if (locT.gt.TTb) then
+            estar = tan(phif)
+          else
+            estar = tan(phib) + locT/TTb*(tan(phif)-tan(phib))
+          end if
+          do k = min(jc,jt)-1,max(jc,jt)+1
+            ! eta t
+           ! if (u.gt.0.d0) then
+           !   etat = tan(-ze_x_in(k))
+           ! else
+           !   etat =  tan(ze_x_in(k))
+           ! end if
+              etat =  abs(tan(ze_x_in(k)))
+            ! b vector
+            if (etat.le.estar) then
+              eddy_b(k) = 0
+              b(k) = 0.d0
+            elseif (etat.le.2.d0*estar) then
+              eddy_b(k) = 1
+              b(k) = etat/estar-1.d0
+            else
+              eddy_b(k) = 1
+              b(k) = 1.d0
+            end if
+!            print*, 'here', k, etat, estar, b(k), ze_x_in(k)
+            ! viscosity
+            eddy_v(k) = b(k)*delb**2*(de_in(k)+ze_in(k))*etat
+            eddy_tmp(k) = eddy_v(k)*qe_x_in(k)
+!            print*, 'here', k, eddy_tmp(k), eddy_v(k)
+!            write(*,'(2i,8f16.8)') i, k, eddy_v(k), eddy_tmp(k), etat, estar, locT, TTb, tan(phib), tan(phif)
+          end do 
+        end do 
+        DO I = 1,P+1
+          L = 1
+          eTMP(1) = C12*(eddy_TMP(L)  +eddy_TMP(L))
+          eTMP(2) = C12*(eddy_TMP(L+1)+eddy_TMP(L))
+          eddy_src(I,L,irk) = eTMP(1) + (eTMP(2)-eTMP(1))/2.D0*                 &
+     &                                ( 2.D0*REAL(I-1)/REAL(P) )
+          DO L = 2,NE-1
+            eTMP(1) = C12*(eddy_TMP(L-1)+eddy_TMP(L))
+            eTMP(2) = C12*(eddy_TMP(L+1)+eddy_TMP(L))
+            eddy_src(I,L,irk) = eTMP(1) + (eTMP(2)-eTMP(1))/2.D0*               &
+     &                                ( 2.D0*REAL(I-1)/REAL(P) )
+          END DO
+          L = NE
+          eTMP(1) = C12*(eddy_TMP(L-1)+eddy_TMP(L))
+          eTMP(2) = C12*(eddy_TMP(L)  +eddy_TMP(L))
+          eddy_src(I,L,irk) = eTMP(1) + (eTMP(2)-eTMP(1))/2.D0*                 &
+     &                                ( 2.D0*REAL(I-1)/REAL(P) )
+        END DO
+      end if
+      
+
       END SUBROUTINE eddy_visc
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      SUBROUTINE BrWaveIndex(ktb,phib,phif,de_in,ue_in,ze_in,matwavi,      &
+     &                        matwavr,numwav,kbrwave)
+
+      USE GLOBALS,    ONLY : NE,TIME_RK,LE,DT,G,numbrwavold,kbrwaveold
+      USE SIZES,      ONLY : SZ
+      USE READ_DGINP, ONLY : H0
+
+      real(sz),intent(in)  :: ktb,phib,phif
+      real(sz),intent(in)  :: de_in(ne),ue_in(ne),ze_in(ne)
+      real(sz),intent(in)  :: matwavr(ne,3)
+      integer,intent(in)   :: numwav,matwavi(ne,2)
+      real(sz),intent(out) :: kbrwave(9,ne)
+      integer              :: i,numbrwave,jc,jt,jb
+      real(sz)             :: tanphi,d,u,c
+      real(sz)             :: tb,TTb
+
+      kbrwave(:,:) = 0.d0
+      write(*,'(A,2I)') '-->', numwav, numbrwavold
+
+      if (numbrwavold.eq.0) then  ! No old waves to consider
+        numbrwave = 0
+        do i = 1,numwav
+          jc     = matwavi(i,1)
+          jt     = matwavi(i,2)
+          tanphi = matwavr(i,1)
+          d      = matwavr(i,2)
+          u      = matwavr(i,3)
+          c      = dsqrt(d*g)
+
+          ! Check to see if the wave is breaking
+          if (tan(tanphi).gt.tan(phib)) then
+            numbrwave = numbrwave+1
+            tb = time_rk
+            jb = jc
+            TTb = ktb*dsqrt(d/g)
+            kbrwave(1:9,numbrwave) = (/ tb,dble(jb),TTb,dble(jc),dble(jt),tanphi,d,c,u /)
+          end if
+        end do
+      else  ! Must also consider previously breaking waves
+        numbrwave = 0
+        do i = 2,numwav-1
+          jc     = matwavi(i,1)
+          jt     = matwavi(i,2)
+          jtn    = matwavi(i-1,2)
+          jtp    = matwavi(i+1,2)
+          tanphi = matwavr(i,1)
+          d      = matwavr(i,2)
+          u      = matwavr(i,3)
+          c      = dsqrt(d*g)
+          ! check to see if any of the previous waves match this wave
+          kj = ne+10
+          do j = 1,numbrwavold
+            jbr = kbrwaveold(4,j)
+            ubr = kbrwaveold(9,j)
+            if (u.gt.0.d0.and.ubr.gt.0.d0) then
+              if (jbr.gt.jtn.and.jbr.lt.jt) then
+                kj = min(j,kj)
+              end if
+            elseif (u.lt.0.d0.and.ubr.lt.0.d0) then
+              if (jbr.gt.jt.and.jbr.lt.jtp) then
+                kj = min(j,kj)
+              end if
+            end if
+!            write(*,'(A,2I,2f16.8)') '---', i, k, u, ubr
+          end do
+!          write(*,'(A,2I,3f16.8)') '---', kj, ne, tan(tanphi), tan(phif), tan(phib)
+
+          if (kj.le.ne.and.tan(tanphi).gt.tan(phif)) then
+!            print*, 'HERE HERE'
+            numbrwave = numbrwave + 1
+            kbrwave(1:9,numbrwave) = (/ kbrwaveold(1:3,kj), dble(jc), dble(jt), tanphi, d, c, u /)
+          elseif (kj.gt.ne.and.tan(tanphi).gt.tan(phib)) then
+            numbrwave = numbrwave + 1
+            tb = time_rk
+            jb = jc
+            TTb = ktb*dsqrt(d/g)
+            kbrwave(1:9,numbrwave) = (/ tb,dble(jb),TTb,dble(jc),dble(jt),tanphi,d,c,u /)
+          end if
+        end do
+      end if
+
+      ! Update the "old" wave info
+      kbrwaveold(:,:) = 0.d0
+      do i = 1,numbrwave
+        kbrwaveold(:,i) = kbrwave(:,i)
+      end do
+      numbrwavold = numbrwave
+      
+!      if (numwav.ne.0.and.numwavold.eq.0) then  ! All new waves
+!        k = 1
+!        do i = 1,numwav
+!          
+!          jc = MatWav(i,1)
+!          jt = MatWav(i,2)
+!          tanphi = MatWav(i,3)
+!          d  = MatWav(i,4)
+!          c  = dsqrt(G*d)
+!
+!          if (tan(tanphi).gt.tan(phib).and. &
+!                 ue_in(jc).gt.0.d0.and. &
+!                (ze_in(jc)+de_in(jc)).gt.H0) then
+!            timeb = time_rk
+!            jb = jc
+!            tb = ktb*dsqrt(d/g)
+!            kbrwave(1,1,k) = timeb
+!            kbrwave(1,2,k) = jb
+!            kbrwave(1,3,k) = tb
+!            kbrwave(1,4,k) = jc
+!            kbrwave(1,5,k) = jt
+!            kbrwave(1,6,k) = tanphi
+!            kbrwave(1,7,k) = d
+!            kbrwave(1,8,k) = c
+!            k = k + 1
+!          end if
+!        end do
+!      elseif (numwav.ne.0.and.numwavold.ne.0) then  ! Some old waves to be checked
+!        k = 1
+!   
+!      else    ! No waves
+!        numwavold = 0  
+!      end if
+
+      RETURN
+      END SUBROUTINE BrWaveIndex
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      SUBROUTINE waveprop(de_in,ze_in,de_x_in,ze_x_in,ue_in,MatWavI,       &
+     &                       MatWavR,numwav)
+
+      USE GLOBALS,    ONLY : NE,LE,WDFLG
+      USE SIZES,      ONLY : SZ
+      USE READ_DGINP, ONLY : H0
+
+      real(sz),intent(in)  :: ze_in(ne),de_in(ne),ze_x_in(ne),de_x_in(ne)
+      real(sz),intent(in)  :: ue_in(ne)
+      real(sz)             :: ze_filt(ne),WDtol,d,tanPHI,dx
+      real(sz),intent(out) :: MatWavR(ne,3)
+      integer,intent(out)  :: numwav,MatWavI(ne,2)
+      integer              :: i,j
+      integer              :: jzero_up(ne),jzero_down(ne),numjzero,numtmp
+      integer              :: jcc,jtt,jc1,jt1
+
+      WDtol = H0
+      MatWavR(:,:) = 0.d0
+      MatWavI(:,:) = 0
+      numwav = 0
+      dx = le(1)
+
+      ! Excerpted from WaveProp.m provided by Joaquin Moris
+
+!------ a) Subtract a filtered signal of the free-surface from the free-surface
+      ! Filtered signal
+      call filtfilt(ne,ze_in,ze_filt)
+
+!------ b) Determine all zero-crossings to identify locations of wave crests and troughs.
+      ! First look for zero-up-crossings which will identify possible waves traveling to the right
+      ! Estimates for zero up-crossing
+      numtmp = 0
+      do i = 1,ne-2
+        if (ze_filt(i).lt.0.d0.and.ze_filt(i+1).gt.0.d0) then
+          numtmp = numtmp+1
+          jzero_up(numtmp) = i + 1
+        end if
+      end do
+      numtmp = numtmp + 1
+      jzero_up(numtmp) = ne
+      
+      if (numtmp.gt.1) then
+        
+!            print*, '----'
+        do i = 1,numtmp-1 ! check each wave for a crest/trough combo
+          zmin = ze_filt(jzero_up(i))
+          zmax = zmin
+          jmin = 0
+          jmax = 0
+          do j = jzero_up(i)+1,jzero_up(i+1)
+            if (wdflg(j).eq.1) then
+              if (ze_filt(j).lt.zmin) then
+                zmin = ze_filt(j)
+                jmin = j
+              end if
+              if (ze_filt(j).gt.zmax) then
+                zmax = ze_filt(j)
+                jmax = j
+              end if          
+            end if
+          end do
+          ! since we are doing up-crossings:
+          !  - check to if trough is to the right of crest
+          !  - check to see if crest is moving to the right
+          !  - if yes to both of these then we have a wave!
+          if (jmin.ne.0.and.jmin.gt.jmax.and.ue_in(jmax).gt.0.d0) then 
+            numwav = numwav + 1
+            d = max(de_in(jmax),dx)
+            tanphi = 0.d0
+            do j = jmax,jmin
+              tanphi = max(tanphi,-ze_x_in(j))
+            end do
+
+            MatWavI(numwav,1) = jmax
+            MatWavI(numwav,2) = jmin
+            MatWavR(numwav,1) = tanPHI
+            MatWavR(numwav,2) = d
+            MatWavR(numwav,3) = ue_in(jmax)
+
+!            write(*,'(5I)') i,jmin, jmax, jzero_up(i), jzero_up(i+1) 
+          end if
+        end do
+      end if
+      ! Next look for zero-down-crossings which will identify possible waves traveling to the left
+      ! Estimates for zero down-crossing
+      numtmp = 1
+      jzero_down(numtmp) = 1
+      do i = 3,ne
+        if (ze_filt(i).lt.0.d0.and.ze_filt(i-1).gt.0.d0) then
+          numtmp = numtmp+1
+          jzero_down(numtmp) = i - 1
+        end if
+      end do
+      
+      if (numtmp.gt.1) then
+!        print*, '----'
+        do i = 1,numtmp-1 ! check each wave for a trough/crest combo
+          zmin = ze_filt(jzero_down(i))
+          zmax = zmin
+          jmin = 0
+          jmax = 0
+          do j = jzero_down(i)+1,jzero_down(i+1)
+            if (wdflg(j).eq.1) then
+              if (ze_filt(j).lt.zmin) then
+                zmin = ze_filt(j)
+                jmin = j
+              end if
+              if (ze_filt(j).gt.zmax) then
+                zmax = ze_filt(j)
+                jmax = j
+              end if          
+            end if
+          end do
+          ! since we are doing down-crossings:
+          !  - check to if trough is to the left of crest
+          !  - check to see if crest is moving to the left
+          !  - if yes to both of these then we have a wave!
+          if (jmin.ne.0.and.jmin.lt.jmax.and.ue_in(jmax).lt.0.d0) then 
+            numwav = numwav + 1
+            d = max(de_in(jmax),dx)
+            tanphi = 0.d0
+            do j = jmin,jmax
+              tanphi = max(tanphi,ze_x_in(j))
+            end do
+
+            MatWavI(numwav,1) = jmax
+            MatWavI(numwav,2) = jmin
+            MatWavR(numwav,1) = tanPHI
+            MatWavR(numwav,2) = d
+            MatWavR(numwav,3) = ue_in(jmax)
+!            write(*,'(5I)') i, jmin, jmax, jzero_down(i), jzero_down(i+1) 
+          end if
+        end do
+      end if
+
+!      print*, '===='
+
+      END SUBROUTINE waveprop
+!--------------------------------------------------------------------------!
+!==========================================================================!
+!--------------------------------------------------------------------------!
+      SUBROUTINE filtfilt(n,eta,etaj)
+
+      use SIZES, only : sz
+
+      implicit none
+      integer,intent(in)   :: n
+      real(sz),intent(in)  :: eta(n)
+      real(sz),intent(out) :: etaj(n)
+
+      integer  :: nfact,i
+      real(sz) :: a(2),b(2),etat(n+6),etas(n+6)
+
+      a(1) = 1.d0
+      a(2) = -0.975177876180649d0
+      b(1) =  0.012411061909675d0
+      b(2) =  b(1)
+
+      ! Step 1
+      do i = 1,3
+        etat(i)     = 2*eta(i)-eta(5-i)
+        etat(n+3+i) = 2*eta(n)-eta(n-i)
+      end do
+      do i = 1,n
+        etat(i+3)= eta(i)
+      end do
+
+      ! Step 2
+      etas(1) = etat(1)
+      do i = 2,n+6
+        etas(i) = b(1)*etat(i)+b(2)*etat(i-1)-a(2)*etas(i-1)
+      end do
+
+      ! Step 3
+      do i = 1,n+6
+        etat(i) = etas(n+7-i)
+      end do
+
+      ! Step 4
+      etas(1) = etat(1)
+      do i = 2,n+6
+        etas(i) = b(1)*etat(i)+b(2)*etat(i-1)-a(2)*etas(i-1)
+      end do
+    
+      ! Step 5
+      do i = 1,n
+        etaj(i) = eta(i) - etas(n+4-i)
+      end do
+
+      END SUBROUTINE filtfilt
 !--------------------------------------------------------------------------!
 !==========================================================================!
 !--------------------------------------------------------------------------!

@@ -68,5 +68,7 @@
       REAL(SZ),ALLOCATABLE    :: EDDY_SRC(:,:,:)
       INTEGER,ALLOCATABLE     :: EDDY_B(:)
       INTEGER                 :: FORT651
+      real(sz),allocatable    :: kbrwaveold(:,:)
+      integer                 :: numbrwavold
 
       END MODULE GLOBALS
