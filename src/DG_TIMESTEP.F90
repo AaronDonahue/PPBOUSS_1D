@@ -1487,6 +1487,8 @@
       USE SIZES,      ONLY : SZ
       USE READ_DGINP, ONLY : H0
 
+      implicit none
+
       real(sz),intent(in)  :: ktb,phib,phif
       real(sz),intent(in)  :: de_in(ne),ue_in(ne),ze_in(ne)
       real(sz),intent(in)  :: matwavr(ne,3)
@@ -1613,6 +1615,8 @@
       USE GLOBALS,    ONLY : NE,LE,WDFLG
       USE SIZES,      ONLY : SZ
       USE READ_DGINP, ONLY : H0
+
+      implicit none
 
       real(sz),intent(in)  :: ze_in(ne),de_in(ne),ze_x_in(ne),de_x_in(ne)
       real(sz),intent(in)  :: ue_in(ne)
