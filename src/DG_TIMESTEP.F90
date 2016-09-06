@@ -1494,7 +1494,9 @@
       real(sz),intent(in)  :: matwavr(ne,3)
       integer,intent(in)   :: numwav,matwavi(ne,2)
       real(sz),intent(out) :: kbrwave(9,ne)
-      integer              :: i,numbrwave,jc,jt,jb
+      integer              :: i,j,numbrwave,jc,jt,jb
+      integer              :: jtn,jtp,kj
+      real(sz)             :: jbr,ubr
       real(sz)             :: tanphi,d,u,c
       real(sz)             :: tb,TTb
 
@@ -1626,6 +1628,8 @@
       integer              :: i,j
       integer              :: jzero_up(ne),jzero_down(ne),numjzero,numtmp
       integer              :: jcc,jtt,jc1,jt1
+      real(sz)             :: zmin,zmax
+      integer              :: jmin,jmax
 
       WDtol = H0
       MatWavR(:,:) = 0.d0
