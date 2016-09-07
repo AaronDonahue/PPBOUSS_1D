@@ -1437,7 +1437,7 @@
            ! else
            !   etat =  tan(ze_x_in(k))
            ! end if
-              etat =  abs(tan(ze_x_in(k)))
+              etat =  abs((ze_x_in(k)))
             ! b vector
             if (etat.le.estar) then
               eddy_b(k) = 0
@@ -1519,7 +1519,7 @@
           c      = dsqrt(d*g)
 
           ! Check to see if the wave is breaking
-          if (tan(tanphi).gt.tan(phib)) then
+          if (tanphi.gt.tan(phib)) then
             numbrwave = numbrwave+1
             tb = time_rk
             jb = jc
@@ -1555,14 +1555,14 @@
             end if
 !            write(*,'(A,2I,2f16.8)') '---', i, k, u, ubr
           end do
-!          write(*,'(A,2I,3f16.8)') '---', kj, ne, tan(tanphi), tan(phif), tan(phib)
+!          write(*,'(A,2I,3f16.8)') '---', kj, ne, tanphi, tan(phif), tan(phib)
 
-          if (kj.le.ne.and.tan(tanphi).gt.tan(phif)) then
+          if (kj.le.ne.and.tanphi.gt.tan(phif)) then
 !            print*, 'HERE HERE'
             numbrwave = numbrwave + 1
             kbrwaveI(1:3,numbrwave) = (/ kbrwaveoldI(1,kj), jc, jt  /)
             kbrwaveR(1:6,numbrwave) = (/ kbrwaveoldR(1:2,kj), tanphi, d, c, u /)
-          elseif (kj.gt.ne.and.tan(tanphi).gt.tan(phib)) then
+          elseif (kj.gt.ne.and.tanphi.gt.tan(phib)) then
             numbrwave = numbrwave + 1
             tb = time_rk
             jb = jc
@@ -1592,7 +1592,7 @@
 !          d  = MatWav(i,4)
 !          c  = dsqrt(G*d)
 !
-!          if (tan(tanphi).gt.tan(phib).and. &
+!          if (tanphi.gt.tan(phib).and. &
 !                 ue_in(jc).gt.0.d0.and. &
 !                (ze_in(jc)+de_in(jc)).gt.H0) then
 !            timeb = time_rk
