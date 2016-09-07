@@ -1383,7 +1383,9 @@
       REAL(SZ) :: DE_XX_IN(NE),ZE_XX_IN(NE)
       real(sz) :: MatWavR(ne,3)
       integer  :: numwav,MatWavI(ne,2)
-      real(sz) :: kbrwave(9,ne),phib,phif,ktb
+      real(sz) :: kbrwaveR(6,ne)
+      integer  :: kbrwaveI(3,ne)
+      real(sz) :: phib,phif,ktb
       real(sz) :: eddy_tmp(ne),etmp(2)
       real(sz) :: b(ne),delb,estar,etat
       real(sz) :: tb,TTb,u,locT
@@ -1410,16 +1412,16 @@
       !.... Array of breaking waves
       if (numwav.gt.0) then
         call BrWaveIndex(ktb,phib,phif,de_in,ue_in,ze_in,matwavi,      &
-     &                        matwavr,numwav,kbrwave)
+     &                        matwavr,numwav,kbrwaveR,kbrwaveI)
 !        print*, 'Num Br = ', numbrwavold
         ! Now assign eddy viscosity terms based on breaking waves
         do i = 1,numbrwavold
 !            kbrwave(1:9,numbrwave) = (/ tb,jb,TTb,jc,jt,tanphi,d,c,u /)
-          tb  = kbrwave(1,i)
-          TTb = kbrwave(3,i)
-          jc  = int(kbrwave(4,i))
-          jt  = int(kbrwave(5,i))
-          u   = kbrwave(9,i)
+          tb  = kbrwaveR(1,i)
+          TTb = kbrwaveR(2,i)
+          jc  = kbrwaveI(2,i)
+          jt  = kbrwaveI(3,i)
+          u   = kbrwaveR(6,i)
 !          write(*,'(9F16.8)') kbrwave(1:9,i)
           ! eta star
           locT = tb-time_rk
@@ -1481,9 +1483,10 @@
 !==========================================================================!
 !--------------------------------------------------------------------------!
       SUBROUTINE BrWaveIndex(ktb,phib,phif,de_in,ue_in,ze_in,matwavi,      &
-     &                        matwavr,numwav,kbrwave)
+     &                        matwavr,numwav,kbrwaveR,kbrwaveI)
 
-      USE GLOBALS,    ONLY : NE,TIME_RK,LE,DT,G,numbrwavold,kbrwaveold
+      USE GLOBALS,    ONLY : NE,TIME_RK,LE,DT,G,numbrwavold,kbrwaveoldR,   &
+     &                       kbrwaveoldI
       USE SIZES,      ONLY : SZ
       USE READ_DGINP, ONLY : H0
 
@@ -1493,14 +1496,16 @@
       real(sz),intent(in)  :: de_in(ne),ue_in(ne),ze_in(ne)
       real(sz),intent(in)  :: matwavr(ne,3)
       integer,intent(in)   :: numwav,matwavi(ne,2)
-      real(sz),intent(out) :: kbrwave(9,ne)
+      real(sz),intent(out) :: kbrwaveR(6,ne)
+      integer,intent(out)  :: kbrwaveI(3,ne)
       integer              :: i,j,numbrwave,jc,jt,jb
       integer              :: jtn,jtp,kj
       real(sz)             :: jbr,ubr
       real(sz)             :: tanphi,d,u,c
       real(sz)             :: tb,TTb
 
-      kbrwave(:,:) = 0.d0
+      kbrwaveR(:,:) = 0.d0
+      kbrwaveI(:,:) = 0
       write(*,'(A,2I)') '-->', numwav, numbrwavold
 
       if (numbrwavold.eq.0) then  ! No old waves to consider
@@ -1519,7 +1524,8 @@
             tb = time_rk
             jb = jc
             TTb = ktb*dsqrt(d/g)
-            kbrwave(1:9,numbrwave) = (/ tb,dble(jb),TTb,dble(jc),dble(jt),tanphi,d,c,u /)
+            kbrwaveI(1:3,numbrwave) = (/ jb,jc,jt /)
+            kbrwaveR(1:6,numbrwave) = (/ tb,TTb,tanphi,d,c,u /)
           end if
         end do
       else  ! Must also consider previously breaking waves
@@ -1536,8 +1542,8 @@
           ! check to see if any of the previous waves match this wave
           kj = ne+10
           do j = 1,numbrwavold
-            jbr = kbrwaveold(4,j)
-            ubr = kbrwaveold(9,j)
+            jbr = kbrwaveoldI(1,j)
+            ubr = kbrwaveoldR(6,j)
             if (u.gt.0.d0.and.ubr.gt.0.d0) then
               if (jbr.gt.jtn.and.jbr.lt.jt) then
                 kj = min(j,kj)
@@ -1554,21 +1560,25 @@
           if (kj.le.ne.and.tan(tanphi).gt.tan(phif)) then
 !            print*, 'HERE HERE'
             numbrwave = numbrwave + 1
-            kbrwave(1:9,numbrwave) = (/ kbrwaveold(1:3,kj), dble(jc), dble(jt), tanphi, d, c, u /)
+            kbrwaveI(1:3,numbrwave) = (/ kbrwaveoldI(1,kj), jc, jt  /)
+            kbrwaveR(1:6,numbrwave) = (/ kbrwaveoldR(1:2,kj), tanphi, d, c, u /)
           elseif (kj.gt.ne.and.tan(tanphi).gt.tan(phib)) then
             numbrwave = numbrwave + 1
             tb = time_rk
             jb = jc
             TTb = ktb*dsqrt(d/g)
-            kbrwave(1:9,numbrwave) = (/ tb,dble(jb),TTb,dble(jc),dble(jt),tanphi,d,c,u /)
+            kbrwaveI(1:3,numbrwave) = (/ jb,jc,jt /)
+            kbrwaveR(1:6,numbrwave) = (/ tb,TTb,tanphi,d,c,u /)
           end if
         end do
       end if
 
       ! Update the "old" wave info
-      kbrwaveold(:,:) = 0.d0
+      kbrwaveoldR(:,:) = 0.d0
+      kbrwaveoldI(:,:) = 0
       do i = 1,numbrwave
-        kbrwaveold(:,i) = kbrwave(:,i)
+        kbrwaveoldR(:,i) = kbrwaveR(:,i)
+        kbrwaveoldI(:,i) = kbrwaveI(:,i)
       end do
       numbrwavold = numbrwave
       

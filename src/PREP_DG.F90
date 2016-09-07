@@ -48,7 +48,8 @@
       USE GLOBALS,    ONLY : PHI,DPHI,PHIB,DPHIB,PSI,DPSI,PSIB,DPSIB,      &
      &                    ATVD,BTVD,TTVD,MDG,DGPIV,MCG,CGPIV,NE,ZE,QE,     &
      &                    ZE_RHS,QE_RHS,WDFLG,PD,PB,MANN,SPNG_GEN,SPNG_ABS,&
-     &                    DISPFLG,EDDY_V,EDDY_B,EDDY_T,EDDY_SRC,kbrwaveold
+     &                    DISPFLG,EDDY_V,EDDY_B,EDDY_T,EDDY_SRC,kbrwaveoldR&
+     &                   ,kbrwaveoldI
       USE READ_DGINP, ONLY : P,NRK,NEGP,MAXTIME
       
       IMPLICIT NONE
@@ -75,7 +76,8 @@
       ALLOCATE(EDDY_V(NE),EDDY_B(NE),EDDY_T(NE))
       ALLOCATE(EDDY_SRC(P+1,NE,NRK+1))
       !ALLOCATE(EDDY_SRC(NE))
-      allocate(kbrwaveold(9,ne))
+      allocate(kbrwaveoldR(6,ne))
+      allocate(kbrwaveoldI(3,ne))
 
 !.....Initialize certain variables
       PHI(:,:)      = 0.D0
@@ -106,7 +108,8 @@
       EDDY_B(:)     = 0
       EDDY_SRC(:,:,:) = 0.D0
       !EDDY_SRC(:) = 0.D0
-      kbrwaveold(:,:) = 0.d0
+      kbrwaveoldR(:,:) = 0.d0
+      kbrwaveoldI(:,:) = 0
       
       RETURN
       END SUBROUTINE VARI_ALLOCATE
@@ -122,7 +125,8 @@
      &                    SPNG_ABS,SPNG_ZAMP,SPNG_QAMP,SPNG_K,SPNG_SIG,    &
      &                    PP_NEGP,PP_WEGP,PP_XEGP,PP_MU,PP_PHI,PP_DPHI,    &
      &                    PP_DDPHI,PP_WEI,DISPFLG,PHISTN,STNELEM,PDLVL,    &
-     &                    PBLVL,EDDY_V,EDDY_B,EDDY_T,EDDY_SRC
+     &                    PBLVL,EDDY_V,EDDY_B,EDDY_T,EDDY_SRC,kbrwaveoldR, &
+     &                    kbrwaveoldI
      USE READ_DGINP, ONLY : INONHYDRO
       
       IMPLICIT NONE
@@ -168,6 +172,7 @@
       END IF
 !.....Eddy Viscosity
       DEALLOCATE(EDDY_V,EDDY_T,EDDY_B,EDDY_SRC)
+      deallocate(kbrwaveoldR,kbrwaveoldI)
 
       RETURN
       END SUBROUTINE VARI_DEALLOCATE
